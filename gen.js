@@ -113,6 +113,33 @@ export function countSolutions(n, dotsByCell, walls, cap = 2, nodeBudget = 25000
   let nodes = 0;
   let budgetExceeded = false;
 
+  // Connectivity prune: after tentatively stepping onto `fromCell`, check that
+  // every still-unvisited cell is reachable from there (through non-wall
+  // edges). If any unvisited cell is cut off, this branch can never complete
+  // a full grid-filling path, so we can abandon it immediately instead of
+  // exploring a doomed subtree. This is what makes sparser (harder) puzzles
+  // tractable to verify.
+  const stack = new Int32Array(total);
+  const seen = new Uint8Array(total);
+  function reachableUnvisitedCount(fromCell) {
+    seen.fill(0);
+    let sp = 0;
+    stack[sp++] = fromCell;
+    seen[fromCell] = 1;
+    let cnt = 0;
+    while (sp > 0) {
+      const cur = stack[--sp];
+      for (const nb of neighbors(cur, n)) {
+        if (visited[nb] || seen[nb]) continue;
+        if (walls.has(edgeKey(cur, nb))) continue;
+        seen[nb] = 1;
+        cnt++;
+        stack[sp++] = nb;
+      }
+    }
+    return cnt;
+  }
+
   function dfs(cell, count, nextDot) {
     if (found >= cap || budgetExceeded) return;
     nodes++;
@@ -131,7 +158,10 @@ export function countSolutions(n, dotsByCell, walls, cap = 2, nodeBudget = 25000
         newNextDot = nextDot + 1;
       }
       visited[nb] = 1;
-      dfs(nb, count + 1, newNextDot);
+      const remaining = total - (count + 1);
+      if (remaining === 0 || reachableUnvisitedCount(nb) === remaining) {
+        dfs(nb, count + 1, newNextDot);
+      }
       visited[nb] = 0;
       if (found >= cap || budgetExceeded) return;
     }
