@@ -184,13 +184,32 @@ function generateWalls(n, path, dotsByCell, rng, opts = {}) {
     }
   }
 
-  // Phase 2: difficulty-driven extra barriers. Adding more walls on edges
-  // that were never part of the true solution can only ever remove
-  // alternative routes, never the real one — so uniqueness is preserved by
-  // construction. We deliberately target edges near "branchy" cells (cells
-  // with many grid neighbors) since that's where a player has to actively
-  // rule out tempting wrong turns, which is what should scale with
-  // difficulty rather than raw grid size alone.
+  // Phase 2: shrink toward a near-minimal wall set. A wall only ever removes
+  // *wrong* routes (it's never on the true path), so fewer walls means a more
+  // open grid with more genuinely tempting wrong turns — that's what makes a
+  // puzzle hard, matching how the original game plays: harder boards lean on
+  // an almost-bare grid, easier ones lean on walls as guardrails. We try
+  // removing each wall (in random order) and keep it removed whenever the
+  // solution stays unique without it.
+  if (count === 1) {
+    const wallList = Array.from(walls);
+    for (let i = wallList.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [wallList[i], wallList[j]] = [wallList[j], wallList[i]];
+    }
+    for (const w of wallList) {
+      walls.delete(w);
+      const res = countSolutions(n, dotsByCell, walls, 2, nodeBudget);
+      if (res.count !== 1) {
+        walls.add(w); // still needed — keep it
+      }
+    }
+  }
+
+  // Phase 3: difficulty-driven *guide* walls (only for easier levels — pass
+  // extraWallBudget:0 for hard). These are added back on top of the minimal
+  // set, targeted at "branchy" cells (many grid neighbors) where a guardrail
+  // is most helpful, making the level friendlier rather than harder.
   const extraWallBudget = opts.extraWallBudget ?? 0;
   if (extraWallBudget > 0 && count === 1) {
     const remaining = candidates.filter((key) => !walls.has(key));

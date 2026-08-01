@@ -403,14 +403,15 @@ function applyI18n(){
 }
 
 /* ---------------- difficulty config ---------------- */
-// extraWallBudget adds barriers beyond the minimum needed for a unique
-// solution, targeted at "branchy" grid positions — so harder levels aren't
-// just bigger grids, they also force more active route-planning around
-// blocked shortcuts.
+// extraWallBudget adds guardrail walls on top of the minimal set needed for
+// a unique solution. Walls only ever remove wrong turns, never the true
+// path — so MORE walls make a level easier (fewer tempting wrong moves),
+// and FEWER walls make it harder (a more open grid where you have to reason
+// your way past real dead ends), matching the original game.
 const DIFF = {
-  easy:   { n:5, dots:6,  label:'diff_easy',   extraWallBudget:0 },
+  easy:   { n:5, dots:6,  label:'diff_easy',   extraWallBudget:9 },
   medium: { n:6, dots:8,  label:'diff_medium', extraWallBudget:3 },
-  hard:   { n:7, dots:10, label:'diff_hard',   extraWallBudget:7 },
+  hard:   { n:7, dots:10, label:'diff_hard',   extraWallBudget:0 },
 };
 
 /* ---------------- user / auth-lite ---------------- */
