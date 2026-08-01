@@ -594,6 +594,11 @@ async function startGame(difficulty, mode){
   hideSolvedBanner();
   renderLoadingGrid();
 
+  // Give the browser a chance to actually paint the loading bar before the
+  // (synchronous, potentially heavy) puzzle generation work below starts —
+  // otherwise the DOM update above can sit unpainted until generation yields.
+  await new Promise((resolve)=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+
   // Keep the loading bar visible for at least ~600ms so it's never skipped
   // over unnoticed on a fast (e.g. already-cached daily) load.
   const minLoadTime = new Promise((resolve)=>setTimeout(resolve, 600));
