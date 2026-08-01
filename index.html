@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#070b16">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Zip Puzzle</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -438,9 +439,9 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js";
-import { generateCrossword } from "./crossword-gen.js";
-import { WORD_BANK } from "./crossword-words.js";
+import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js?v=3";
+import { generateCrossword } from "./crossword-gen.js?v=3";
+import { WORD_BANK } from "./crossword-words.js?v=3";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDt7a6P4_yBJ2ScGO752kDDHq5UR0HGQPc",
