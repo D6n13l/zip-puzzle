@@ -594,17 +594,22 @@ async function startGame(difficulty, mode){
   hideSolvedBanner();
   renderLoadingGrid();
 
-  let data;
-  if(mode==='daily'){
-    try{
-      data = await loadOrCreateDailyPuzzle(difficulty);
-    }catch(e){
-      console.warn('Falling back to practice puzzle (offline?)', e);
-      data = await generatePracticePuzzle(difficulty);
+  // Keep the loading bar visible for at least ~600ms so it's never skipped
+  // over unnoticed on a fast (e.g. already-cached daily) load.
+  const minLoadTime = new Promise((resolve)=>setTimeout(resolve, 600));
+  const fetchData = (async ()=>{
+    if(mode==='daily'){
+      try{
+        return await loadOrCreateDailyPuzzle(difficulty);
+      }catch(e){
+        console.warn('Falling back to practice puzzle (offline?)', e);
+        return await generatePracticePuzzle(difficulty);
+      }
     }
-  } else {
-    data = await generatePracticePuzzle(difficulty);
-  }
+    return await generatePracticePuzzle(difficulty);
+  })();
+
+  const [data] = await Promise.all([fetchData, minLoadTime]);
 
   const numDots = Object.keys(data.dots).length;
   game = {
