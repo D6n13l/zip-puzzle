@@ -16,6 +16,7 @@
     --ink:#f2f4fa;
     --ink-soft:#8991ac;
     --line:#262d4a;
+    --grid-line:#454d80;
     --pink-glow:#ff2e9e;
     --pink-core:#ff6fd2;
     --pink-highlight:#ffe6f7;
@@ -138,12 +139,13 @@
   #grid{
     position:relative;width:100%;aspect-ratio:1/1;
     border-radius:16px;overflow:hidden;background:#0b0f22;
+    border:2px solid var(--grid-line);
     touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
     overscroll-behavior:contain;
   }
   .cell{
     position:absolute;
-    border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+    border-right:1px solid var(--grid-line);border-bottom:1px solid var(--grid-line);
     display:flex;align-items:center;justify-content:center;
     touch-action:none;-webkit-touch-callout:none;
   }
@@ -166,6 +168,11 @@
   .game-actions{display:flex;gap:10px;margin-bottom:6px;}
   .game-actions .btn{flex:1;}
   .solved-text{font-family:'Nunito';font-weight:800;font-size:16px;color:var(--pink-core);text-shadow:0 0 14px rgba(255,92,200,0.45);}
+  #btn-continue{animation:btnGlowPulse 1.1s ease-in-out infinite;}
+  @keyframes btnGlowPulse{
+    0%,100%{box-shadow:0 6px 20px rgba(255,92,200,0.35);filter:brightness(1);}
+    50%{box-shadow:0 6px 34px rgba(255,92,200,0.9), 0 0 26px rgba(255,111,210,0.65);filter:brightness(1.15);}
+  }
 
   .howto{margin-top:16px;background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:14px 18px;color:var(--ink);}
   .howto summary{cursor:pointer;font-family:'Nunito';font-weight:800;font-size:14.5px;list-style:none;display:flex;align-items:center;justify-content:space-between;}
