@@ -419,9 +419,9 @@ function applyI18n(){
 // but that makes the uniqueness search much heavier, so harder levels also
 // get a bigger generation budget.
 const DIFF = {
-  easy:   { n:7, dots:11, label:'diff_easy',   extraWallBudget:4, genNodeBudget:250000, genMaxRetries:12 },
-  medium: { n:8, dots:16, label:'diff_medium', extraWallBudget:2, genNodeBudget:280000, genMaxRetries:12 },
-  hard:   { n:8, dots:14, label:'diff_hard',   extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16 },
+  easy:   { n:7, dots:9,  label:'diff_easy',   extraWallBudget:2, genNodeBudget:280000, genMaxRetries:14 },
+  medium: { n:8, dots:14, label:'diff_medium', extraWallBudget:1, genNodeBudget:300000, genMaxRetries:14 },
+  hard:   { n:8, dots:12, label:'diff_hard',   extraWallBudget:0, genNodeBudget:340000, genMaxRetries:18 },
 };
 
 /* ---------------- user / auth-lite ---------------- */
