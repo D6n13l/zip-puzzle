@@ -1261,13 +1261,34 @@ function moveXwFocus(row, col, dir, delta){
   }
 }
 
+function updateWordColoring(row, col, dir){
+  const cells = wordCellsFor(row, col, dir);
+  if(cells.length < 2) return; // not a real clued word in this direction
+  const inputs = cells.map(({r,c}) => xwInputAt(r,c));
+  const filled = inputs.every(inp => inp && inp.value);
+  const correctAnswer = cells.map(({r,c}) => crossword.grid[r][c]).join('');
+  const typed = inputs.map(inp => (inp && inp.value ? inp.value.toUpperCase() : '')).join('');
+  inputs.forEach(inp=>{ if(inp) inp.classList.remove('xw-correct','xw-wrong'); });
+  if(!filled) return; // leave uncolored until the whole word slot is filled
+  const isCorrect = typed === correctAnswer;
+  inputs.forEach(inp=>{
+    if(!inp) return;
+    inp.classList.add(isCorrect ? 'xw-correct' : 'xw-wrong');
+  });
+}
+
 function onXwInput(e, r, c){
   const val = e.target.value.toUpperCase().replace(/[^A-ZÄÖÜ]/g,'');
   e.target.value = val.slice(-1);
-  e.target.classList.remove('xw-correct','xw-wrong');
   if(val){
     moveXwFocus(r, c, xwDirection, 1);
   }
+  // Give immediate per-word feedback (red as soon as a fully-filled word
+  // slot doesn't match — whether because a letter's wrong or the guessed
+  // word is a different length than the slot allows) rather than waiting
+  // for the entire grid to be finished.
+  updateWordColoring(r, c, 'H');
+  updateWordColoring(r, c, 'V');
   checkCrosswordCompletion(true);
 }
 

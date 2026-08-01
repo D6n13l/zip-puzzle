@@ -60,7 +60,7 @@ function tryPlacement(word, row, col, dir, letters) {
   return { row, col, dir, crossings };
 }
 
-function findBestPlacement(word, letters, wordPositions) {
+function findBestPlacement(word, letters) {
   let best = null;
   for (let i = 0; i < word.length; i++) {
     const ch = word[i];
@@ -88,30 +88,65 @@ export function generateCrossword(wordBank, opts = {}) {
   const rng = mulberry32(seed);
 
   const pool = shuffle(wordBank, rng).slice(0, candidatePoolSize);
-  // Longer words first tend to make better anchors and richer grids.
+  // Longer words first tend to make better anchors.
   pool.sort((a, b) => b.word.length - a.word.length);
 
   const letters = new Map(); // "r,c" -> letter
   const placed = []; // { word, clue, row, col, dir }
+  const remaining = pool.slice();
 
   // Seed with the first (longest) word, placed horizontally at the origin.
-  const first = pool[0];
+  const first = remaining.shift();
   for (let i = 0; i < first.word.length; i++) {
     letters.set(cellKey(0, i), first.word[i]);
   }
   placed.push({ word: first.word, clue: first.clue, row: 0, col: 0, dir: 'H' });
+  let bbox = { minR: 0, maxR: 0, minC: 0, maxC: first.word.length - 1 };
 
-  for (let idx = 1; idx < pool.length && placed.length < targetWords; idx++) {
-    const entry = pool[idx];
-    if (placed.some((p) => p.word === entry.word)) continue;
-    const placement = findBestPlacement(entry.word, letters, placed);
-    if (!placement) continue;
+  function bboxAreaAfter(row, col, dir, len) {
+    const endR = row + (dir === 'V' ? len - 1 : 0);
+    const endC = col + (dir === 'H' ? len - 1 : 0);
+    const newMinR = Math.min(bbox.minR, row), newMaxR = Math.max(bbox.maxR, endR);
+    const newMinC = Math.min(bbox.minC, col), newMaxC = Math.max(bbox.maxC, endC);
+    return (newMaxR - newMinR + 1) * (newMaxC - newMinC + 1);
+  }
+  const oldArea = () => (bbox.maxR - bbox.minR + 1) * (bbox.maxC - bbox.minC + 1);
+
+  // At each step, evaluate every remaining candidate's best placement and
+  // commit only the single best (word, placement) pair overall — scored by
+  // crossing count first (more shared letters = denser grid), with minimal
+  // bounding-box growth as a tie-breaker (keeps the puzzle compact instead
+  // of sprawling out). This is far denser than committing the first word
+  // that happens to fit.
+  while (placed.length < targetWords && remaining.length > 0) {
+    let bestOverall = null; // { idx, row, col, dir, crossings, score }
+    for (let idx = 0; idx < remaining.length; idx++) {
+      const entry = remaining[idx];
+      const placement = findBestPlacement(entry.word, letters);
+      if (!placement) continue;
+      const newArea = bboxAreaAfter(placement.row, placement.col, placement.dir, entry.word.length);
+      const areaGrowth = newArea - oldArea();
+      const score = placement.crossings * 1000 - areaGrowth;
+      if (!bestOverall || score > bestOverall.score) {
+        bestOverall = { idx, row: placement.row, col: placement.col, dir: placement.dir, crossings: placement.crossings, score };
+      }
+    }
+    if (!bestOverall) break; // no remaining word can be placed at all
+    const entry = remaining[bestOverall.idx];
     for (let i = 0; i < entry.word.length; i++) {
-      const r = placement.row + (placement.dir === 'V' ? i : 0);
-      const c = placement.col + (placement.dir === 'H' ? i : 0);
+      const r = bestOverall.row + (bestOverall.dir === 'V' ? i : 0);
+      const c = bestOverall.col + (bestOverall.dir === 'H' ? i : 0);
       letters.set(cellKey(r, c), entry.word[i]);
     }
-    placed.push({ word: entry.word, clue: entry.clue, row: placement.row, col: placement.col, dir: placement.dir });
+    const len = entry.word.length;
+    const endR = bestOverall.row + (bestOverall.dir === 'V' ? len - 1 : 0);
+    const endC = bestOverall.col + (bestOverall.dir === 'H' ? len - 1 : 0);
+    bbox = {
+      minR: Math.min(bbox.minR, bestOverall.row), maxR: Math.max(bbox.maxR, endR),
+      minC: Math.min(bbox.minC, bestOverall.col), maxC: Math.max(bbox.maxC, endC),
+    };
+    placed.push({ word: entry.word, clue: entry.clue, row: bestOverall.row, col: bestOverall.col, dir: bestOverall.dir });
+    remaining.splice(bestOverall.idx, 1);
   }
 
   // Normalize coordinates to start at (0,0).
