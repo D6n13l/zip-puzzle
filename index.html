@@ -248,8 +248,8 @@
 
     <div class="section-label" data-t="menu_difficulty">Schwierigkeit</div>
     <div class="diff-grid" id="diff-grid">
-      <div class="diff-card" data-diff="easy"><div class="lvl" data-t="diff_easy">Leicht</div><div class="sz">5×5</div></div>
-      <div class="diff-card" data-diff="medium"><div class="lvl" data-t="diff_medium">Mittel</div><div class="sz">6×6</div></div>
+      <div class="diff-card" data-diff="easy"><div class="lvl" data-t="diff_easy">Leicht</div><div class="sz">6×6</div></div>
+      <div class="diff-card" data-diff="medium"><div class="lvl" data-t="diff_medium">Mittel</div><div class="sz">7×7</div></div>
       <div class="diff-card" data-diff="hard"><div class="lvl" data-t="diff_hard">Schwer</div><div class="sz">7×7</div></div>
     </div>
 
@@ -419,8 +419,8 @@ function applyI18n(){
 // but that makes the uniqueness search much heavier, so harder levels also
 // get a bigger generation budget.
 const DIFF = {
-  easy:   { n:5, dots:6, label:'diff_easy',   extraWallBudget:9, genNodeBudget:120000, genMaxRetries:8  },
-  medium: { n:6, dots:7, label:'diff_medium', extraWallBudget:3, genNodeBudget:180000, genMaxRetries:10 },
+  easy:   { n:6, dots:8, label:'diff_easy',   extraWallBudget:5, genNodeBudget:250000, genMaxRetries:12 },
+  medium: { n:7, dots:8, label:'diff_medium', extraWallBudget:1, genNodeBudget:300000, genMaxRetries:14 },
   hard:   { n:7, dots:6, label:'diff_hard',   extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16 },
 };
 
