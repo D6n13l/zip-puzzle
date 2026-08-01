@@ -1110,7 +1110,8 @@ function startCrossword(){
   document.getElementById('crossword-status-text').textContent = '';
   renderCrosswordLoading();
   setTimeout(()=>{ // let the loading state paint first
-    crossword = generateCrossword(xwFilteredBank(), { targetWords: 14, candidatePoolSize: 50 });
+    const bank = xwFilteredBank();
+    crossword = generateCrossword(bank, { targetWords: 30, candidatePoolSize: bank.length });
     buildCrosswordGrid();
   }, 30);
 }
