@@ -128,29 +128,20 @@
   .game-sub{font-size:12px;color:var(--ink-soft);}
   .timer-chip{margin-left:auto;background:var(--ink);color:#fff;font-family:'Nunito';font-weight:800;font-size:15px;padding:8px 14px;border-radius:999px;min-width:70px;text-align:center;}
 
-  #grid-wrap{background:var(--card);border-radius:var(--radius-card);box-shadow:var(--shadow);padding:14px;margin-bottom:16px;}
+  #grid-wrap{background:var(--card);border-radius:var(--radius-card);box-shadow:var(--shadow);padding:14px;margin-bottom:16px;touch-action:none;overscroll-behavior:contain;}
   #grid{
     position:relative;width:100%;aspect-ratio:1/1;
     border-radius:16px;overflow:hidden;background:#fbfbfa;
-    touch-action:none;user-select:none;
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    overscroll-behavior:contain;
   }
   .cell{
     position:absolute;
     border-right:1px solid var(--line);border-bottom:1px solid var(--line);
     display:flex;align-items:center;justify-content:center;
+    touch-action:none;-webkit-touch-callout:none;
   }
-  .cell .fill-circle{
-    position:absolute;width:76%;height:76%;border-radius:50%;
-    background:var(--green-halo);opacity:0;transition:opacity .08s ease;
-  }
-  .cell .fill-circle::after{
-    content:"";position:absolute;inset:22%;border-radius:50%;background:var(--green-mid);
-  }
-  .cell.filled .fill-circle{opacity:1;}
-  .bridge{position:absolute;background:var(--green-halo);z-index:1;}
-  .bridge::after{content:"";position:absolute;background:var(--green-mid);}
-  .bridge.h::after{inset:30% 0;}
-  .bridge.v::after{inset:0 30%;}
+  #path-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;}
 
   .dot{
     position:absolute;width:52%;height:52%;border-radius:50%;background:var(--black-wall);color:#fff;
@@ -597,6 +588,16 @@ function buildGrid(){
   grid.innerHTML = '';
   const n = game.n;
   const pct = 100/n;
+
+  // SVG layer for the smooth connecting line (round joins/caps everywhere,
+  // including corners) — sits above the cell background, below dots/walls.
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('id', 'path-svg');
+  svg.setAttribute('viewBox', `0 0 ${n} ${n}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  grid.appendChild(svg);
+
   for(let cell=0; cell<n*n; cell++){
     const [r,c] = cellCoords(cell,n);
     const div = document.createElement('div');
@@ -608,9 +609,6 @@ function buildGrid(){
     div.style.height = pct+'%';
     if(c===n-1) div.style.borderRight='none';
     if(r===n-1) div.style.borderBottom='none';
-    const fillCircle = document.createElement('div');
-    fillCircle.className = 'fill-circle';
-    div.appendChild(fillCircle);
     if(game.dotsByCell[cell] !== undefined){
       const dot = document.createElement('div');
       dot.className = 'dot';
@@ -648,31 +646,48 @@ function buildGrid(){
 function cellEl(cell){ return document.querySelector(`#grid .cell[data-cell="${cell}"]`); }
 
 function renderPath(){
-  document.querySelectorAll('#grid .cell').forEach(el=>el.classList.remove('filled'));
-  document.querySelectorAll('#grid .bridge').forEach(el=>el.remove());
-  const n = game.n, pct = 100/n;
-  game.path.forEach(cell=>{ const el = cellEl(cell); if(el) el.classList.add('filled'); });
-  for(let i=0;i<game.path.length-1;i++){
-    const a = game.path[i], b = game.path[i+1];
-    const [ra,ca] = cellCoords(a,n), [rb,cb] = cellCoords(b,n);
-    const bridge = document.createElement('div');
-    const size = pct*0.42;
-    if(ra===rb){
-      bridge.className='bridge h';
-      const left = Math.min(ca,cb)*pct + pct - (pct - pct)/2;
-      bridge.style.top = (ra*pct + pct/2 - size/2)+'%';
-      bridge.style.height = size+'%';
-      bridge.style.left = (Math.min(ca,cb)*pct + pct*0.5)+'%';
-      bridge.style.width = pct+'%';
-    } else {
-      bridge.className='bridge v';
-      bridge.style.left = (ca*pct + pct/2 - size/2)+'%';
-      bridge.style.width = size+'%';
-      bridge.style.top = (Math.min(ra,rb)*pct + pct*0.5)+'%';
-      bridge.style.height = pct+'%';
-    }
-    document.getElementById('grid').appendChild(bridge);
+  const svg = document.getElementById('path-svg');
+  if(!svg) return;
+  svg.innerHTML = '';
+  if(game.path.length===0) return;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const n = game.n;
+  const pts = game.path.map(cell=>{
+    const [r,c] = cellCoords(cell,n);
+    return { x: c+0.5, y: r+0.5 };
+  });
+  const haloW = 0.68, coreW = 0.32;
+  const ptsStr = pts.map(p=>`${p.x},${p.y}`).join(' ');
+
+  function makeLine(width, color){
+    const el = document.createElementNS(svgNS,'polyline');
+    el.setAttribute('points', ptsStr);
+    el.setAttribute('fill','none');
+    el.setAttribute('stroke', color);
+    el.setAttribute('stroke-width', width);
+    el.setAttribute('stroke-linecap','round');
+    el.setAttribute('stroke-linejoin','round');
+    return el;
   }
+  function makeCap(p, radius, color){
+    const el = document.createElementNS(svgNS,'circle');
+    el.setAttribute('cx', p.x); el.setAttribute('cy', p.y); el.setAttribute('r', radius);
+    el.setAttribute('fill', color);
+    return el;
+  }
+
+  const haloColor = getComputedStyle(document.documentElement).getPropertyValue('--green-halo').trim();
+  const coreColor = getComputedStyle(document.documentElement).getPropertyValue('--green-mid').trim();
+  const first = pts[0], last = pts[pts.length-1];
+
+  // halo layer (wider, lighter) drawn first...
+  if(pts.length>1) svg.appendChild(makeLine(haloW, haloColor));
+  svg.appendChild(makeCap(first, haloW/2, haloColor));
+  if(pts.length>1) svg.appendChild(makeCap(last, haloW/2, haloColor));
+  // ...then the core layer (narrower, darker) on top, for the two-tone tube look
+  if(pts.length>1) svg.appendChild(makeLine(coreW, coreColor));
+  svg.appendChild(makeCap(first, coreW/2, coreColor));
+  if(pts.length>1) svg.appendChild(makeCap(last, coreW/2, coreColor));
 }
 
 function isAdjacent(a,b,n){
