@@ -17,6 +17,9 @@
     --green-deep:#2f8f4e;
     --green-mid:#4caf6d;
     --green-halo:#bfe6cb;
+    --neon-glow:#39e26a;
+    --neon-core:#5cffa0;
+    --neon-highlight:#e8fff2;
     --black-wall:#1a1a1a;
     --pill:#f4f5f4;
     --shadow: 0 10px 30px rgba(20,30,25,0.08);
@@ -142,6 +145,11 @@
     touch-action:none;-webkit-touch-callout:none;
   }
   #path-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;}
+  #path-svg.win-flash{animation:neonPulse .55s ease-in-out 2;}
+  @keyframes neonPulse{
+    0%,100%{filter:brightness(1) saturate(1);}
+    50%{filter:brightness(1.9) saturate(1.6);}
+  }
 
   .dot{
     position:absolute;width:52%;height:52%;border-radius:50%;background:var(--black-wall);color:#fff;
@@ -596,6 +604,18 @@ function buildGrid(){
   svg.setAttribute('id', 'path-svg');
   svg.setAttribute('viewBox', `0 0 ${n} ${n}`);
   svg.setAttribute('preserveAspectRatio', 'none');
+  const defs = document.createElementNS(svgNS, 'defs');
+  defs.innerHTML = `
+    <filter id="neonGlowFilter" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.18" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.06" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>`;
+  svg.appendChild(defs);
   grid.appendChild(svg);
 
   for(let cell=0; cell<n*n; cell++){
@@ -648,7 +668,8 @@ function cellEl(cell){ return document.querySelector(`#grid .cell[data-cell="${c
 function renderPath(){
   const svg = document.getElementById('path-svg');
   if(!svg) return;
-  svg.innerHTML = '';
+  // remove previously drawn shapes but keep <defs> (holds the glow filter)
+  Array.from(svg.children).forEach(child=>{ if(child.tagName!=='defs') child.remove(); });
   if(game.path.length===0) return;
   const svgNS = 'http://www.w3.org/2000/svg';
   const n = game.n;
@@ -656,10 +677,10 @@ function renderPath(){
     const [r,c] = cellCoords(cell,n);
     return { x: c+0.5, y: r+0.5 };
   });
-  const haloW = 0.68, coreW = 0.32;
+  const glowW = 0.62, coreW = 0.34, highlightW = 0.12;
   const ptsStr = pts.map(p=>`${p.x},${p.y}`).join(' ');
 
-  function makeLine(width, color){
+  function makeLine(width, color, opts={}){
     const el = document.createElementNS(svgNS,'polyline');
     el.setAttribute('points', ptsStr);
     el.setAttribute('fill','none');
@@ -667,27 +688,38 @@ function renderPath(){
     el.setAttribute('stroke-width', width);
     el.setAttribute('stroke-linecap','round');
     el.setAttribute('stroke-linejoin','round');
+    if(opts.opacity!==undefined) el.setAttribute('opacity', opts.opacity);
+    if(opts.filter) el.setAttribute('filter', opts.filter);
     return el;
   }
-  function makeCap(p, radius, color){
+  function makeCap(p, radius, color, opts={}){
     const el = document.createElementNS(svgNS,'circle');
     el.setAttribute('cx', p.x); el.setAttribute('cy', p.y); el.setAttribute('r', radius);
     el.setAttribute('fill', color);
+    if(opts.opacity!==undefined) el.setAttribute('opacity', opts.opacity);
+    if(opts.filter) el.setAttribute('filter', opts.filter);
     return el;
   }
 
-  const haloColor = getComputedStyle(document.documentElement).getPropertyValue('--green-halo').trim();
-  const coreColor = getComputedStyle(document.documentElement).getPropertyValue('--green-mid').trim();
+  const glowColor = getComputedStyle(document.documentElement).getPropertyValue('--neon-glow').trim();
+  const coreColor = getComputedStyle(document.documentElement).getPropertyValue('--neon-core').trim();
+  const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--neon-highlight').trim();
   const first = pts[0], last = pts[pts.length-1];
 
-  // halo layer (wider, lighter) drawn first...
-  if(pts.length>1) svg.appendChild(makeLine(haloW, haloColor));
-  svg.appendChild(makeCap(first, haloW/2, haloColor));
-  if(pts.length>1) svg.appendChild(makeCap(last, haloW/2, haloColor));
-  // ...then the core layer (narrower, darker) on top, for the two-tone tube look
+  // 1) Blurred glow layer — the colored halo bleeding outside the tube
+  if(pts.length>1) svg.appendChild(makeLine(glowW, glowColor, {opacity:0.85, filter:'url(#neonGlowFilter)'}));
+  svg.appendChild(makeCap(first, glowW/2, glowColor, {opacity:0.85, filter:'url(#neonGlowFilter)'}));
+  if(pts.length>1) svg.appendChild(makeCap(last, glowW/2, glowColor, {opacity:0.85, filter:'url(#neonGlowFilter)'}));
+
+  // 2) Saturated core tube (sharp, no blur)
   if(pts.length>1) svg.appendChild(makeLine(coreW, coreColor));
   svg.appendChild(makeCap(first, coreW/2, coreColor));
   if(pts.length>1) svg.appendChild(makeCap(last, coreW/2, coreColor));
+
+  // 3) Thin bright highlight streak down the middle — the "glass glare" of a neon tube
+  if(pts.length>1) svg.appendChild(makeLine(highlightW, highlightColor, {opacity:0.9}));
+  svg.appendChild(makeCap(first, highlightW/1.6, highlightColor, {opacity:0.9}));
+  if(pts.length>1) svg.appendChild(makeCap(last, highlightW/1.6, highlightColor, {opacity:0.9}));
 }
 
 function isAdjacent(a,b,n){
@@ -807,6 +839,12 @@ async function finishGame(){
   game.finished = true;
   stopTimer();
   const elapsed = Date.now()-game.startedAt;
+
+  // Let the solved path flash/glow on the grid for a moment before switching screens.
+  const svg = document.getElementById('path-svg');
+  if(svg) svg.classList.add('win-flash');
+  await new Promise(resolve=>setTimeout(resolve, 750));
+
   document.getElementById('win-time').textContent = formatTime(elapsed);
   showScreen('screen-win');
   if(game.mode==='daily'){
