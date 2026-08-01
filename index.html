@@ -407,11 +407,14 @@ function applyI18n(){
 // a unique solution. Walls only ever remove wrong turns, never the true
 // path — so MORE walls make a level easier (fewer tempting wrong moves),
 // and FEWER walls make it harder (a more open grid where you have to reason
-// your way past real dead ends), matching the original game.
+// your way past real dead ends), matching the original game. Fewer dots
+// relative to grid size also raises difficulty (bigger unguided stretches),
+// but that makes the uniqueness search much heavier, so harder levels also
+// get a bigger generation budget.
 const DIFF = {
-  easy:   { n:5, dots:6,  label:'diff_easy',   extraWallBudget:9 },
-  medium: { n:6, dots:8,  label:'diff_medium', extraWallBudget:3 },
-  hard:   { n:7, dots:10, label:'diff_hard',   extraWallBudget:0 },
+  easy:   { n:5, dots:6, label:'diff_easy',   extraWallBudget:9, genNodeBudget:120000, genMaxRetries:8  },
+  medium: { n:6, dots:7, label:'diff_medium', extraWallBudget:3, genNodeBudget:180000, genMaxRetries:10 },
+  hard:   { n:7, dots:8, label:'diff_hard',   extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16 },
 };
 
 /* ---------------- user / auth-lite ---------------- */
@@ -555,17 +558,17 @@ async function loadOrCreateDailyPuzzle(difficulty){
   // Not present yet: generate, then try to commit via transaction so concurrent
   // clients converge on the same puzzle for the day.
   const seed = hashStringToSeed(`${difficulty}-${todayStr()}`);
-  const puzzle = generatePuzzle(cfg.n, cfg.dots, seed, { extraWallBudget: cfg.extraWallBudget, nodeBudget: 250000, maxRetries: 12 });
+  const puzzle = await generatePuzzle(cfg.n, cfg.dots, seed, { extraWallBudget: cfg.extraWallBudget, nodeBudget: cfg.genNodeBudget, maxRetries: cfg.genMaxRetries });
   const payload = { n: puzzle.n, dots: dotsObjToArray(puzzle.dots), walls: puzzle.walls, createdAt: Date.now() };
   const txResult = await runTransaction(r, (current)=> current === null ? payload : current);
   const finalVal = txResult.snapshot.val();
   return { n: finalVal.n, dots: dotsArrayToObj(finalVal.dots), walls: edgesFromWallArray(finalVal.walls) };
 }
 
-function generatePracticePuzzle(difficulty){
+async function generatePracticePuzzle(difficulty){
   const cfg = DIFF[difficulty];
   const seed = Math.floor(Math.random()*4294967295);
-  const puzzle = generatePuzzle(cfg.n, cfg.dots, seed, { extraWallBudget: cfg.extraWallBudget, nodeBudget: 120000, maxRetries: 8 });
+  const puzzle = await generatePuzzle(cfg.n, cfg.dots, seed, { extraWallBudget: cfg.extraWallBudget, nodeBudget: cfg.genNodeBudget, maxRetries: cfg.genMaxRetries });
   return { n: puzzle.n, dots: puzzle.dots, walls: new Set(puzzle.walls) };
 }
 
@@ -582,10 +585,10 @@ async function startGame(difficulty, mode){
       data = await loadOrCreateDailyPuzzle(difficulty);
     }catch(e){
       console.warn('Falling back to practice puzzle (offline?)', e);
-      data = generatePracticePuzzle(difficulty);
+      data = await generatePracticePuzzle(difficulty);
     }
   } else {
-    data = generatePracticePuzzle(difficulty);
+    data = await generatePracticePuzzle(difficulty);
   }
 
   const numDots = Object.keys(data.dots).length;

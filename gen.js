@@ -235,15 +235,18 @@ function generatePuzzleAttempt(n, numDots, seed, opts = {}) {
   return { n, seed, path, dots: dotsByCell, walls: Array.from(walls), unique, budgetExceeded };
 }
 
-export function generatePuzzle(n, numDots, seed, opts = {}) {
+function sleep0() { return new Promise((resolve) => setTimeout(resolve, 0)); }
+
+export async function generatePuzzle(n, numDots, seed, opts = {}) {
   const maxRetries = opts.maxRetries ?? 12;
   let best = null;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const trySeed = (seed + attempt * 104729) >>> 0;
     const result = generatePuzzleAttempt(n, numDots, trySeed, opts);
-    if (!result) continue;
+    if (!result) { await sleep0(); continue; }
     if (result.unique) return result;
     if (!best || result.walls.length > best.walls.length) best = result;
+    await sleep0(); // let the browser repaint (loading spinner) between attempts
   }
   return best;
 }
