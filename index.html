@@ -403,10 +403,14 @@ function applyI18n(){
 }
 
 /* ---------------- difficulty config ---------------- */
+// extraWallBudget adds barriers beyond the minimum needed for a unique
+// solution, targeted at "branchy" grid positions — so harder levels aren't
+// just bigger grids, they also force more active route-planning around
+// blocked shortcuts.
 const DIFF = {
-  easy:   { n:5, dots:6,  label:'diff_easy'   },
-  medium: { n:6, dots:8,  label:'diff_medium' },
-  hard:   { n:7, dots:10, label:'diff_hard'   },
+  easy:   { n:5, dots:6,  label:'diff_easy',   extraWallBudget:0 },
+  medium: { n:6, dots:8,  label:'diff_medium', extraWallBudget:3 },
+  hard:   { n:7, dots:10, label:'diff_hard',   extraWallBudget:7 },
 };
 
 /* ---------------- user / auth-lite ---------------- */
@@ -550,7 +554,7 @@ async function loadOrCreateDailyPuzzle(difficulty){
   // Not present yet: generate, then try to commit via transaction so concurrent
   // clients converge on the same puzzle for the day.
   const seed = hashStringToSeed(`${difficulty}-${todayStr()}`);
-  const puzzle = generatePuzzle(cfg.n, cfg.dots, seed, { maxWalls: Math.ceil(cfg.n*1.6), nodeBudget: 250000, maxRetries: 12 });
+  const puzzle = generatePuzzle(cfg.n, cfg.dots, seed, { extraWallBudget: cfg.extraWallBudget, nodeBudget: 250000, maxRetries: 12 });
   const payload = { n: puzzle.n, dots: dotsObjToArray(puzzle.dots), walls: puzzle.walls, createdAt: Date.now() };
   const txResult = await runTransaction(r, (current)=> current === null ? payload : current);
   const finalVal = txResult.snapshot.val();
@@ -560,7 +564,7 @@ async function loadOrCreateDailyPuzzle(difficulty){
 function generatePracticePuzzle(difficulty){
   const cfg = DIFF[difficulty];
   const seed = Math.floor(Math.random()*4294967295);
-  const puzzle = generatePuzzle(cfg.n, cfg.dots, seed, { maxWalls: Math.ceil(cfg.n*1.6), nodeBudget: 120000, maxRetries: 8 });
+  const puzzle = generatePuzzle(cfg.n, cfg.dots, seed, { extraWallBudget: cfg.extraWallBudget, nodeBudget: 120000, maxRetries: 8 });
   return { n: puzzle.n, dots: puzzle.dots, walls: new Set(puzzle.walls) };
 }
 

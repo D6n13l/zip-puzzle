@@ -142,8 +142,12 @@ export function countSolutions(n, dotsByCell, walls, cap = 2, nodeBudget = 25000
   return { count: found, budgetExceeded };
 }
 
+function cellDegree(cell, n) { return neighbors(cell, n).length; }
+
 function generateWalls(n, path, dotsByCell, rng, opts = {}) {
-  const maxWalls = opts.maxWalls ?? Math.ceil(n * 1.6);
+  // Phase 1: add walls (random order) until the solution is unique. No
+  // artificial cap here — retries at a higher level handle the rare case
+  // where this doesn't converge within the node budget.
   const nodeBudget = opts.nodeBudget ?? 250000;
 
   const pathEdges = new Set();
@@ -168,7 +172,7 @@ function generateWalls(n, path, dotsByCell, rng, opts = {}) {
   let { count } = countSolutions(n, dotsByCell, walls, 2, nodeBudget);
   let ci = 0;
   let budgetExceeded = false;
-  while (count !== 1 && ci < candidates.length && walls.size < maxWalls) {
+  while (count !== 1 && ci < candidates.length) {
     walls.add(candidates[ci]);
     ci++;
     const res = countSolutions(n, dotsByCell, walls, 2, nodeBudget);
@@ -179,6 +183,27 @@ function generateWalls(n, path, dotsByCell, rng, opts = {}) {
       count = 2;
     }
   }
+
+  // Phase 2: difficulty-driven extra barriers. Adding more walls on edges
+  // that were never part of the true solution can only ever remove
+  // alternative routes, never the real one — so uniqueness is preserved by
+  // construction. We deliberately target edges near "branchy" cells (cells
+  // with many grid neighbors) since that's where a player has to actively
+  // rule out tempting wrong turns, which is what should scale with
+  // difficulty rather than raw grid size alone.
+  const extraWallBudget = opts.extraWallBudget ?? 0;
+  if (extraWallBudget > 0 && count === 1) {
+    const remaining = candidates.filter((key) => !walls.has(key));
+    const scored = remaining.map((key) => {
+      const [a, b] = key.split('_').map(Number);
+      return { key, score: cellDegree(a, n) + cellDegree(b, n) + rng() * 0.5 };
+    });
+    scored.sort((x, y) => y.score - x.score);
+    for (let i = 0; i < scored.length && i < extraWallBudget; i++) {
+      walls.add(scored[i].key);
+    }
+  }
+
   return { walls, unique: count === 1, budgetExceeded };
 }
 
