@@ -1,0 +1,168 @@
+// Crossword generator: greedily places words from a shuffled word bank onto
+// a sparse grid, connecting them at shared letters, then compiles the final
+// numbered grid + across/down clue lists.
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function cellKey(r, c) { return r + ',' + c; }
+
+// Checks whether `word` can be placed at (row,col) going in `dir` ('H'|'V')
+// against the current sparse letter map, and returns a placement descriptor
+// with a crossing-count score, or null if invalid.
+function tryPlacement(word, row, col, dir, letters) {
+  let crossings = 0;
+  const dr = dir === 'V' ? 1 : 0;
+  const dc = dir === 'H' ? 1 : 0;
+
+  // Cell immediately before the start and after the end must be empty —
+  // otherwise this word would run into another word and merge unintentionally.
+  const beforeKey = cellKey(row - dr, col - dc);
+  const afterKey = cellKey(row + dr * word.length, col + dc * word.length);
+  if (letters.has(beforeKey)) return null;
+  if (letters.has(afterKey)) return null;
+
+  for (let i = 0; i < word.length; i++) {
+    const r = row + dr * i;
+    const c = col + dc * i;
+    const key = cellKey(r, c);
+    const existing = letters.get(key);
+    if (existing !== undefined) {
+      if (existing !== word[i]) return null; // conflicting letter
+      crossings++;
+    } else {
+      // Perpendicular neighbors of a non-crossing cell must be empty, or
+      // this would create an accidental adjacent word fragment.
+      const pr1 = dir === 'H' ? r - 1 : r;
+      const pc1 = dir === 'H' ? c : c - 1;
+      const pr2 = dir === 'H' ? r + 1 : r;
+      const pc2 = dir === 'H' ? c : c + 1;
+      if (letters.has(cellKey(pr1, pc1))) return null;
+      if (letters.has(cellKey(pr2, pc2))) return null;
+    }
+  }
+  return { row, col, dir, crossings };
+}
+
+function findBestPlacement(word, letters, wordPositions) {
+  let best = null;
+  for (let i = 0; i < word.length; i++) {
+    const ch = word[i];
+    for (const [key] of letters) {
+      const [er, ec] = key.split(',').map(Number);
+      if (letters.get(key) !== ch) continue;
+      // Try placing this word crossing at (er,ec) in both orientations.
+      // Horizontal: word's i-th letter lands at (er, ec) => start col = ec-i
+      const hRow = er, hCol = ec - i;
+      const hPlacement = tryPlacement(word, hRow, hCol, 'H', letters);
+      if (hPlacement && (!best || hPlacement.crossings > best.crossings)) best = hPlacement;
+      // Vertical: word's i-th letter lands at (er, ec) => start row = er-i
+      const vRow = er - i, vCol = ec;
+      const vPlacement = tryPlacement(word, vRow, vCol, 'V', letters);
+      if (vPlacement && (!best || vPlacement.crossings > best.crossings)) best = vPlacement;
+    }
+  }
+  return best;
+}
+
+export function generateCrossword(wordBank, opts = {}) {
+  const targetWords = opts.targetWords ?? 12;
+  const candidatePoolSize = opts.candidatePoolSize ?? 45;
+  const seed = opts.seed ?? Math.floor(Math.random() * 4294967295);
+  const rng = mulberry32(seed);
+
+  const pool = shuffle(wordBank, rng).slice(0, candidatePoolSize);
+  // Longer words first tend to make better anchors and richer grids.
+  pool.sort((a, b) => b.word.length - a.word.length);
+
+  const letters = new Map(); // "r,c" -> letter
+  const placed = []; // { word, clue, row, col, dir }
+
+  // Seed with the first (longest) word, placed horizontally at the origin.
+  const first = pool[0];
+  for (let i = 0; i < first.word.length; i++) {
+    letters.set(cellKey(0, i), first.word[i]);
+  }
+  placed.push({ word: first.word, clue: first.clue, row: 0, col: 0, dir: 'H' });
+
+  for (let idx = 1; idx < pool.length && placed.length < targetWords; idx++) {
+    const entry = pool[idx];
+    if (placed.some((p) => p.word === entry.word)) continue;
+    const placement = findBestPlacement(entry.word, letters, placed);
+    if (!placement) continue;
+    for (let i = 0; i < entry.word.length; i++) {
+      const r = placement.row + (placement.dir === 'V' ? i : 0);
+      const c = placement.col + (placement.dir === 'H' ? i : 0);
+      letters.set(cellKey(r, c), entry.word[i]);
+    }
+    placed.push({ word: entry.word, clue: entry.clue, row: placement.row, col: placement.col, dir: placement.dir });
+  }
+
+  // Normalize coordinates to start at (0,0).
+  let minR = Infinity, minC = Infinity, maxR = -Infinity, maxC = -Infinity;
+  for (const p of placed) {
+    const len = p.word.length;
+    const endR = p.row + (p.dir === 'V' ? len - 1 : 0);
+    const endC = p.col + (p.dir === 'H' ? len - 1 : 0);
+    minR = Math.min(minR, p.row); maxR = Math.max(maxR, endR);
+    minC = Math.min(minC, p.col); maxC = Math.max(maxC, endC);
+  }
+  for (const p of placed) { p.row -= minR; p.col -= minC; }
+  const height = maxR - minR + 1;
+  const width = maxC - minC + 1;
+
+  // Build the open-cell letter grid.
+  const grid = Array.from({ length: height }, () => new Array(width).fill(null));
+  for (const p of placed) {
+    for (let i = 0; i < p.word.length; i++) {
+      const r = p.row + (p.dir === 'V' ? i : 0);
+      const c = p.col + (p.dir === 'H' ? i : 0);
+      grid[r][c] = p.word[i];
+    }
+  }
+
+  // Number cells: a cell starts an across clue if it's open, has no open
+  // cell to its left, and has an open cell to its right; symmetric for down.
+  function isOpen(r, c) { return r >= 0 && r < height && c >= 0 && c < width && grid[r][c] !== null; }
+  const numbers = Array.from({ length: height }, () => new Array(width).fill(null));
+  const acrossClues = [];
+  const downClues = [];
+  let num = 1;
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      if (!isOpen(r, c)) continue;
+      const startsAcross = !isOpen(r, c - 1) && isOpen(r, c + 1);
+      const startsDown = !isOpen(r - 1, c) && isOpen(r + 1, c);
+      if (startsAcross || startsDown) {
+        numbers[r][c] = num;
+        if (startsAcross) {
+          const p = placed.find((pp) => pp.dir === 'H' && pp.row === r && pp.col === c);
+          acrossClues.push({ number: num, clue: p ? p.clue : '', answer: p ? p.word : '', row: r, col: c, length: p ? p.word.length : 0 });
+        }
+        if (startsDown) {
+          const p = placed.find((pp) => pp.dir === 'V' && pp.row === r && pp.col === c);
+          downClues.push({ number: num, clue: p ? p.clue : '', answer: p ? p.word : '', row: r, col: c, length: p ? p.word.length : 0 });
+        }
+        num++;
+      }
+    }
+  }
+
+  return { width, height, grid, numbers, acrossClues, downClues, wordCount: placed.length };
+}

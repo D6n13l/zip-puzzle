@@ -114,6 +114,15 @@
   .diff-card.selected{border-color:var(--pink-deep);background:rgba(255,92,200,0.12);}
   .diff-card.selected .lvl{color:var(--pink-core);}
 
+  .ptype-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+  .ptype-card{
+    border:1.5px solid var(--line);background:var(--card);border-radius:18px;padding:16px 8px;text-align:center;cursor:pointer;color:var(--ink);
+  }
+  .ptype-icon{font-size:26px;margin-bottom:6px;}
+  .ptype-label{font-family:'Nunito';font-weight:800;font-size:13.5px;}
+  .ptype-card.selected{border-color:var(--pink-deep);background:rgba(255,92,200,0.12);}
+  .ptype-card.selected .ptype-label{color:var(--pink-core);}
+
   .mode-card{
     background:var(--card);border-radius:20px;box-shadow:var(--shadow);padding:18px;margin-top:12px;
     display:flex;align-items:center;gap:14px;cursor:pointer;border:1.5px solid transparent;
@@ -215,6 +224,30 @@
   @keyframes spin{to{transform:rotate(360deg);}}
 
   a.back-link{color:var(--ink-soft);text-decoration:none;font-size:14px;}
+
+  /* ---------- crossword ---------- */
+  #crossword-grid-wrap{background:var(--card);border-radius:var(--radius-card);box-shadow:var(--shadow);padding:14px;margin-bottom:16px;overflow-x:auto;}
+  #crossword-grid{display:inline-grid;gap:2px;background:var(--grid-line);border:2px solid var(--grid-line);border-radius:6px;overflow:hidden;margin:0 auto;}
+  .xw-cell{position:relative;width:34px;height:34px;background:#0b0f22;}
+  .xw-cell.blocked{background:var(--bg);}
+  .xw-cell input{
+    width:100%;height:100%;border:none;background:transparent;color:var(--ink);
+    text-align:center;font-family:'Nunito';font-weight:800;font-size:16px;text-transform:uppercase;
+    outline:none;caret-color:var(--pink-core);padding:0;
+  }
+  .xw-cell .xw-num{position:absolute;top:1px;left:2px;font-size:8px;color:var(--ink-soft);font-family:'Inter';font-weight:600;pointer-events:none;}
+  .xw-cell.xw-active-word input{background:rgba(255,92,200,0.16);}
+  .xw-cell.xw-active-cell input{background:rgba(255,92,200,0.38);}
+  .xw-cell input.xw-correct{color:var(--pink-core);}
+  .xw-cell input.xw-wrong{color:#ff6060;}
+  .clue-lists{display:flex;gap:14px;margin-top:4px;}
+  .clue-section{flex:1;background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:14px;}
+  .clue-heading{font-family:'Nunito';font-weight:800;font-size:13.5px;color:var(--pink-core);margin-bottom:8px;}
+  .clue-list{display:flex;flex-direction:column;gap:6px;}
+  .clue-item{font-size:12.5px;color:var(--ink-soft);line-height:1.35;cursor:pointer;}
+  .clue-item b{color:var(--ink);font-weight:700;}
+  .clue-item.xw-active{color:var(--pink-core);}
+  .xw-status{text-align:center;font-family:'Nunito';font-weight:800;color:var(--pink-core);margin-bottom:10px;text-shadow:0 0 14px rgba(255,92,200,0.45);}
 </style>
 </head>
 
@@ -254,33 +287,58 @@
       </div>
     </div>
 
-    <div class="section-label" data-t="menu_difficulty">Schwierigkeit</div>
-    <div class="diff-grid" id="diff-grid">
-      <div class="diff-card" data-diff="easy"><div class="lvl" data-t="diff_easy">Leicht</div><div class="sz">7×7</div></div>
-      <div class="diff-card" data-diff="medium"><div class="lvl" data-t="diff_medium">Mittel</div><div class="sz">8×8</div></div>
-      <div class="diff-card" data-diff="hard"><div class="lvl" data-t="diff_hard">Schwer</div><div class="sz">8×8</div></div>
-    </div>
-
-    <div class="section-label" data-t="menu_mode">Modus</div>
-    <div class="mode-card" id="card-daily">
-      <div class="mode-icon daily">🗓️</div>
-      <div>
-        <p class="mode-title" data-t="mode_daily_title">Tägliches Rätsel</p>
-        <p class="mode-sub" id="daily-sub" data-t="mode_daily_sub">Ein Rätsel für alle, einmal pro Tag</p>
-        <p class="mode-done" id="daily-done" style="display:none;"></p>
+    <div class="section-label" data-t="menu_ptype">Rätseltyp</div>
+    <div class="ptype-grid" id="ptype-grid">
+      <div class="ptype-card" data-ptype="zip">
+        <div class="ptype-icon">🔗</div>
+        <div class="ptype-label" data-t="ptype_zip">Zip Puzzle</div>
       </div>
-    </div>
-    <div class="mode-card" id="card-practice">
-      <div class="mode-icon practice">🎲</div>
-      <div>
-        <p class="mode-title" data-t="mode_practice_title">Übung</p>
-        <p class="mode-sub" data-t="mode_practice_sub">So oft du willst, zählt nicht für die Rangliste</p>
+      <div class="ptype-card" data-ptype="crossword">
+        <div class="ptype-icon">📝</div>
+        <div class="ptype-label" data-t="ptype_crossword">Kreuzworträtsel</div>
       </div>
     </div>
 
-    <button class="btn btn-outline btn-block leaderboard-link" id="btn-open-leaderboard">
-      🏆 <span data-t="menu_leaderboard">Rangliste ansehen</span>
-    </button>
+    <div id="zip-menu-body">
+      <div class="section-label" data-t="menu_difficulty">Schwierigkeit</div>
+      <div class="diff-grid" id="diff-grid">
+        <div class="diff-card" data-diff="easy"><div class="lvl" data-t="diff_easy">Leicht</div><div class="sz">7×7</div></div>
+        <div class="diff-card" data-diff="medium"><div class="lvl" data-t="diff_medium">Mittel</div><div class="sz">8×8</div></div>
+        <div class="diff-card" data-diff="hard"><div class="lvl" data-t="diff_hard">Schwer</div><div class="sz">8×8</div></div>
+      </div>
+
+      <div class="section-label" data-t="menu_mode">Modus</div>
+      <div class="mode-card" id="card-daily">
+        <div class="mode-icon daily">🗓️</div>
+        <div>
+          <p class="mode-title" data-t="mode_daily_title">Tägliches Rätsel</p>
+          <p class="mode-sub" id="daily-sub" data-t="mode_daily_sub">Ein Rätsel für alle, einmal pro Tag</p>
+          <p class="mode-done" id="daily-done" style="display:none;"></p>
+        </div>
+      </div>
+      <div class="mode-card" id="card-practice">
+        <div class="mode-icon practice">🎲</div>
+        <div>
+          <p class="mode-title" data-t="mode_practice_title">Übung</p>
+          <p class="mode-sub" data-t="mode_practice_sub">So oft du willst, zählt nicht für die Rangliste</p>
+        </div>
+      </div>
+
+      <button class="btn btn-outline btn-block leaderboard-link" id="btn-open-leaderboard">
+        🏆 <span data-t="menu_leaderboard">Rangliste ansehen</span>
+      </button>
+    </div>
+
+    <div id="crossword-menu-body" style="display:none;">
+      <div class="section-label" data-t="menu_mode">Modus</div>
+      <div class="mode-card" id="card-crossword-practice">
+        <div class="mode-icon practice">📝</div>
+        <div>
+          <p class="mode-title" data-t="crossword_practice_title">Neues Kreuzworträtsel</p>
+          <p class="mode-sub" data-t="crossword_practice_sub">Übungsmodus, ohne Rangliste</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- GAME -->
@@ -339,12 +397,42 @@
     <div class="lb-list" id="lb-list"></div>
   </div>
 
+  <!-- CROSSWORD -->
+  <div id="screen-crossword" class="screen">
+    <div class="game-topbar">
+      <div class="icon-btn" id="btn-back-crossword">←</div>
+      <div>
+        <div class="game-title" data-t="ptype_crossword">Kreuzworträtsel</div>
+        <div class="game-sub" id="crossword-status-text"></div>
+      </div>
+    </div>
+    <div id="crossword-grid-wrap">
+      <div id="crossword-grid"></div>
+    </div>
+    <div class="game-actions">
+      <button class="btn btn-outline" id="btn-crossword-new" data-t="crossword_new">Neu</button>
+      <button class="btn btn-primary" id="btn-crossword-check" data-t="crossword_check">Prüfen</button>
+    </div>
+    <div class="clue-lists">
+      <div class="clue-section">
+        <div class="clue-heading" data-t="crossword_across">Waagerecht</div>
+        <div class="clue-list" id="clues-across"></div>
+      </div>
+      <div class="clue-section">
+        <div class="clue-heading" data-t="crossword_down">Senkrecht</div>
+        <div class="clue-list" id="clues-down"></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js";
+import { generateCrossword } from "./crossword-gen.js";
+import { WORD_BANK } from "./crossword-words.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDt7a6P4_yBJ2ScGO752kDDHq5UR0HGQPc",
@@ -363,7 +451,11 @@ const I18N = {
   de: {
     login_title:"Willkommen!", login_sub:"Wie sollen wir dich nennen und in welcher Sprache spielst du?",
     login_name_label:"Dein Name", login_lang_label:"Sprache", login_submit:"Los geht's",
-    menu_rename:"Namen ändern", menu_difficulty:"Schwierigkeit", menu_mode:"Modus",
+    menu_rename:"Namen ändern", menu_difficulty:"Schwierigkeit", menu_mode:"Modus", menu_ptype:"Rätseltyp",
+    ptype_zip:"Zip Puzzle", ptype_crossword:"Kreuzworträtsel",
+    crossword_practice_title:"Neues Kreuzworträtsel", crossword_practice_sub:"Übungsmodus, ohne Rangliste",
+    crossword_across:"Waagerecht", crossword_down:"Senkrecht", crossword_check:"Prüfen", crossword_new:"Neu",
+    crossword_solved:"🧠 Gelöst!", crossword_incomplete:"Noch nicht alles richtig ausgefüllt",
     diff_easy:"Leicht", diff_medium:"Mittel", diff_hard:"Schwer",
     mode_daily_title:"Tägliches Rätsel", mode_daily_sub:"Ein Rätsel für alle, einmal pro Tag",
     mode_practice_title:"Übung", mode_practice_sub:"So oft du willst, zählt nicht für die Rangliste",
@@ -378,7 +470,11 @@ const I18N = {
   en: {
     login_title:"Welcome!", login_sub:"What should we call you, and which language do you play in?",
     login_name_label:"Your name", login_lang_label:"Language", login_submit:"Let's go",
-    menu_rename:"Change name", menu_difficulty:"Difficulty", menu_mode:"Mode",
+    menu_rename:"Change name", menu_difficulty:"Difficulty", menu_mode:"Mode", menu_ptype:"Puzzle type",
+    ptype_zip:"Zip Puzzle", ptype_crossword:"Crossword",
+    crossword_practice_title:"New crossword", crossword_practice_sub:"Practice mode, no leaderboard",
+    crossword_across:"Across", crossword_down:"Down", crossword_check:"Check", crossword_new:"New",
+    crossword_solved:"🧠 Solved!", crossword_incomplete:"Not everything is correct yet",
     diff_easy:"Easy", diff_medium:"Medium", diff_hard:"Hard",
     mode_daily_title:"Daily puzzle", mode_daily_sub:"One puzzle for everyone, once a day",
     mode_practice_title:"Practice", mode_practice_sub:"Play as much as you like, doesn't count for the leaderboard",
@@ -393,7 +489,11 @@ const I18N = {
   es: {
     login_title:"¡Bienvenido!", login_sub:"¿Cómo te llamamos y en qué idioma juegas?",
     login_name_label:"Tu nombre", login_lang_label:"Idioma", login_submit:"¡Vamos!",
-    menu_rename:"Cambiar nombre", menu_difficulty:"Dificultad", menu_mode:"Modo",
+    menu_rename:"Cambiar nombre", menu_difficulty:"Dificultad", menu_mode:"Modo", menu_ptype:"Tipo de puzzle",
+    ptype_zip:"Zip Puzzle", ptype_crossword:"Crucigrama",
+    crossword_practice_title:"Nuevo crucigrama", crossword_practice_sub:"Modo práctica, sin clasificación",
+    crossword_across:"Horizontal", crossword_down:"Vertical", crossword_check:"Comprobar", crossword_new:"Nuevo",
+    crossword_solved:"🧠 ¡Resuelto!", crossword_incomplete:"Todavía no está todo correcto",
     diff_easy:"Fácil", diff_medium:"Medio", diff_hard:"Difícil",
     mode_daily_title:"Puzzle diario", mode_daily_sub:"Un puzzle para todos, una vez al día",
     mode_practice_title:"Práctica", mode_practice_sub:"Juega las veces que quieras, no cuenta para la clasificación",
@@ -475,15 +575,28 @@ document.getElementById('btn-login-submit').addEventListener('click', async ()=>
 
 /* ---------------- MENU screen wiring ---------------- */
 let selectedDiff = localStorage.getItem('zip_last_diff') || 'medium';
+let selectedPType = localStorage.getItem('zip_last_ptype') || 'zip';
 
 function renderMenu(){
   document.getElementById('greeting-text').textContent =
     (lang==='de' ? 'Hallo, ' : lang==='es' ? '¡Hola, ' : 'Hi, ') + userName + '!';
+  document.querySelectorAll('#ptype-grid .ptype-card').forEach(el=>{
+    el.classList.toggle('selected', el.getAttribute('data-ptype')===selectedPType);
+  });
+  document.getElementById('zip-menu-body').style.display = selectedPType==='zip' ? 'block' : 'none';
+  document.getElementById('crossword-menu-body').style.display = selectedPType==='crossword' ? 'block' : 'none';
   document.querySelectorAll('#diff-grid .diff-card').forEach(el=>{
     el.classList.toggle('selected', el.getAttribute('data-diff')===selectedDiff);
   });
-  refreshDailyStatus();
+  if(selectedPType==='zip') refreshDailyStatus();
 }
+document.querySelectorAll('#ptype-grid .ptype-card').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    selectedPType = el.getAttribute('data-ptype');
+    localStorage.setItem('zip_last_ptype', selectedPType);
+    renderMenu();
+  });
+});
 document.querySelectorAll('#diff-grid .diff-card').forEach(el=>{
   el.addEventListener('click', ()=>{
     selectedDiff = el.getAttribute('data-diff');
@@ -531,6 +644,7 @@ async function refreshDailyStatus(){
 document.getElementById('card-daily').addEventListener('click', ()=> startGame(selectedDiff, 'daily'));
 document.getElementById('card-practice').addEventListener('click', ()=> startGame(selectedDiff, 'practice'));
 document.getElementById('btn-open-leaderboard').addEventListener('click', ()=> openLeaderboard(selectedDiff));
+document.getElementById('card-crossword-practice').addEventListener('click', ()=> startCrossword());
 
 function enterMenu(){
   applyI18n();
@@ -981,6 +1095,243 @@ async function renderLeaderboard(){
 function escapeHtml(str){
   const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
 }
+
+/* ---------------- CROSSWORD ---------------- */
+let crossword = null; // { width, height, grid, numbers, acrossClues, downClues }
+let xwDirection = 'H';
+let xwActiveRow = 0, xwActiveCol = 0;
+
+function xwFilteredBank(){
+  return WORD_BANK.filter(w => w.word.length <= 8);
+}
+
+function startCrossword(){
+  showScreen('screen-crossword');
+  document.getElementById('crossword-status-text').textContent = '';
+  renderCrosswordLoading();
+  setTimeout(()=>{ // let the loading state paint first
+    crossword = generateCrossword(xwFilteredBank(), { targetWords: 9, candidatePoolSize: 40 });
+    buildCrosswordGrid();
+  }, 30);
+}
+
+function renderCrosswordLoading(){
+  document.getElementById('crossword-grid').innerHTML =
+    `<div class="loading-bar-wrap" style="position:static;padding:50px 20px;">
+      <div class="progress-track"><div class="progress-fill"></div></div>
+      <div class="loading-label">${t('generating')}</div>
+    </div>`;
+}
+
+function buildCrosswordGrid(){
+  const gridEl = document.getElementById('crossword-grid');
+  gridEl.innerHTML = '';
+  gridEl.style.gridTemplateColumns = `repeat(${crossword.width}, 34px)`;
+  gridEl.style.gridTemplateRows = `repeat(${crossword.height}, 34px)`;
+
+  for(let r=0; r<crossword.height; r++){
+    for(let c=0; c<crossword.width; c++){
+      const cellDiv = document.createElement('div');
+      const isOpen = crossword.grid[r][c] !== null;
+      cellDiv.className = 'xw-cell' + (isOpen ? '' : ' blocked');
+      cellDiv.dataset.row = r; cellDiv.dataset.col = c;
+      if(isOpen){
+        const num = crossword.numbers[r][c];
+        if(num){
+          const numEl = document.createElement('div');
+          numEl.className = 'xw-num';
+          numEl.textContent = num;
+          cellDiv.appendChild(numEl);
+        }
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 1;
+        input.autocomplete = 'off';
+        input.autocapitalize = 'characters';
+        input.dataset.row = r; input.dataset.col = c;
+        input.addEventListener('focus', ()=> setXwActive(r, c));
+        input.addEventListener('click', ()=>{
+          if(xwActiveRow===r && xwActiveCol===c) toggleXwDirection();
+          setXwActive(r, c);
+        });
+        input.addEventListener('input', (e)=> onXwInput(e, r, c));
+        input.addEventListener('keydown', (e)=> onXwKeydown(e, r, c));
+        cellDiv.appendChild(input);
+      }
+      gridEl.appendChild(cellDiv);
+    }
+  }
+  renderClueLists();
+  setXwActive(findFirstOpenCell().r, findFirstOpenCell().c, true);
+}
+
+function findFirstOpenCell(){
+  for(let r=0;r<crossword.height;r++) for(let c=0;c<crossword.width;c++) if(crossword.grid[r][c]!==null) return {r,c};
+  return {r:0,c:0};
+}
+
+function xwInputAt(r,c){ return document.querySelector(`.xw-cell[data-row="${r}"][data-col="${c}"] input`); }
+
+function wordCellsFor(row, col, dir){
+  const cells = [];
+  if(dir==='H'){
+    let c = col;
+    while(c>0 && crossword.grid[row][c-1]!==null) c--;
+    while(c<crossword.width && crossword.grid[row][c]!==null){ cells.push({r:row,c}); c++; }
+  } else {
+    let r = row;
+    while(r>0 && crossword.grid[r-1][col]!==null) r--;
+    while(r<crossword.height && crossword.grid[r][col]!==null){ cells.push({r,c:col}); r++; }
+  }
+  return cells;
+}
+
+function setXwActive(row, col, skipDirFix){
+  xwActiveRow = row; xwActiveCol = col;
+  // Prefer a direction that actually has a multi-cell word at this cell.
+  if(!skipDirFix){
+    const hCells = wordCellsFor(row, col, 'H');
+    const vCells = wordCellsFor(row, col, 'V');
+    if(xwDirection==='H' && hCells.length<2 && vCells.length>=2) xwDirection = 'V';
+    if(xwDirection==='V' && vCells.length<2 && hCells.length>=2) xwDirection = 'H';
+  }
+  document.querySelectorAll('.xw-cell').forEach(el=>el.classList.remove('xw-active-word','xw-active-cell'));
+  const activeCells = wordCellsFor(row, col, xwDirection);
+  activeCells.forEach(({r,c})=>{
+    const el = document.querySelector(`.xw-cell[data-row="${r}"][data-col="${c}"]`);
+    if(el) el.classList.add('xw-active-word');
+  });
+  const curEl = document.querySelector(`.xw-cell[data-row="${row}"][data-col="${col}"]`);
+  if(curEl) curEl.classList.add('xw-active-cell');
+  const input = xwInputAt(row, col);
+  if(input) input.focus();
+  highlightActiveClue();
+}
+
+function toggleXwDirection(){
+  xwDirection = xwDirection==='H' ? 'V' : 'H';
+}
+
+function highlightActiveClue(){
+  document.querySelectorAll('.clue-item').forEach(el=>el.classList.remove('xw-active'));
+  const list = xwDirection==='H' ? crossword.acrossClues : crossword.downClues;
+  const wordCells = wordCellsFor(xwActiveRow, xwActiveCol, xwDirection);
+  if(wordCells.length===0) return;
+  const start = wordCells[0];
+  const clueEntry = list.find(cl => cl.row===start.r && cl.col===start.c);
+  if(clueEntry){
+    const el = document.querySelector(`.clue-item[data-num="${clueEntry.number}"][data-dir="${xwDirection}"]`);
+    if(el) el.classList.add('xw-active');
+  }
+}
+
+function renderClueLists(){
+  const acrossEl = document.getElementById('clues-across');
+  const downEl = document.getElementById('clues-down');
+  acrossEl.innerHTML = crossword.acrossClues.map(cl=>
+    `<div class="clue-item" data-num="${cl.number}" data-dir="H"><b>${cl.number}.</b> ${cl.clue}</div>`
+  ).join('');
+  downEl.innerHTML = crossword.downClues.map(cl=>
+    `<div class="clue-item" data-num="${cl.number}" data-dir="V"><b>${cl.number}.</b> ${cl.clue}</div>`
+  ).join('');
+  acrossEl.querySelectorAll('.clue-item').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const num = Number(el.dataset.num);
+      const cl = crossword.acrossClues.find(c=>c.number===num);
+      if(cl){ xwDirection='H'; setXwActive(cl.row, cl.col, true); }
+    });
+  });
+  downEl.querySelectorAll('.clue-item').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const num = Number(el.dataset.num);
+      const cl = crossword.downClues.find(c=>c.number===num);
+      if(cl){ xwDirection='V'; setXwActive(cl.row, cl.col, true); }
+    });
+  });
+}
+
+function moveXwFocus(row, col, dir, delta){
+  let r=row, c=col;
+  for(let i=0;i<40;i++){
+    r += dir==='V' ? delta : 0;
+    c += dir==='H' ? delta : 0;
+    if(r<0||r>=crossword.height||c<0||c>=crossword.width) return;
+    if(crossword.grid[r][c]!==null){ setXwActive(r,c,true); return; }
+  }
+}
+
+function onXwInput(e, r, c){
+  const val = e.target.value.toUpperCase().replace(/[^A-ZÄÖÜ]/g,'');
+  e.target.value = val.slice(-1);
+  e.target.classList.remove('xw-correct','xw-wrong');
+  if(val){
+    moveXwFocus(r, c, xwDirection, 1);
+  }
+  checkCrosswordCompletion(true);
+}
+
+function onXwKeydown(e, r, c){
+  if(e.key==='Backspace' && !e.target.value){
+    moveXwFocus(r, c, xwDirection, -1);
+  } else if(e.key==='ArrowRight'){ e.preventDefault(); moveXwFocus(r,c,'H',1); }
+  else if(e.key==='ArrowLeft'){ e.preventDefault(); moveXwFocus(r,c,'H',-1); }
+  else if(e.key==='ArrowDown'){ e.preventDefault(); moveXwFocus(r,c,'V',1); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); moveXwFocus(r,c,'V',-1); }
+}
+
+function checkCrosswordCompletion(silent){
+  let allFilled = true;
+  for(let r=0;r<crossword.height;r++){
+    for(let c=0;c<crossword.width;c++){
+      if(crossword.grid[r][c]===null) continue;
+      const input = xwInputAt(r,c);
+      if(!input || !input.value) { allFilled = false; }
+    }
+  }
+  if(!allFilled) return false;
+  const allCorrect = revealCrosswordCorrectness();
+  const statusEl = document.getElementById('crossword-status-text');
+  if(allCorrect){
+    statusEl.textContent = t('crossword_solved');
+  } else if(!silent){
+    statusEl.textContent = t('crossword_incomplete');
+  }
+  return allCorrect;
+}
+
+function revealCrosswordCorrectness(){
+  let allCorrect = true;
+  for(let r=0;r<crossword.height;r++){
+    for(let c=0;c<crossword.width;c++){
+      const correctLetter = crossword.grid[r][c];
+      if(correctLetter===null) continue;
+      const input = xwInputAt(r,c);
+      if(!input) continue;
+      input.classList.remove('xw-correct','xw-wrong');
+      if(!input.value) continue;
+      if(input.value.toUpperCase()===correctLetter){
+        input.classList.add('xw-correct');
+      } else {
+        input.classList.add('xw-wrong');
+        allCorrect = false;
+      }
+    }
+  }
+  return allCorrect;
+}
+
+document.getElementById('btn-crossword-new').addEventListener('click', ()=> startCrossword());
+document.getElementById('btn-crossword-check').addEventListener('click', ()=>{
+  const statusEl = document.getElementById('crossword-status-text');
+  const solved = checkCrosswordCompletion(false);
+  if(!solved){
+    const allCorrect = revealCrosswordCorrectness();
+    statusEl.textContent = allCorrect ? t('crossword_solved') : t('crossword_incomplete');
+  }
+});
+document.getElementById('btn-back-crossword').addEventListener('click', ()=>{
+  showScreen('screen-menu'); renderMenu();
+});
 
 /* ---------------- boot ---------------- */
 applyI18n();
