@@ -203,6 +203,14 @@
   .lb-empty{text-align:center;color:var(--ink-soft);font-size:14px;padding:30px 0;}
 
   .loading-row{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 0;color:var(--ink-soft);font-size:14px;}
+  .progress-track{width:66%;max-width:220px;height:8px;border-radius:999px;background:var(--card-2);overflow:hidden;position:relative;}
+  .progress-fill{position:absolute;top:0;bottom:0;width:38%;border-radius:999px;background:linear-gradient(90deg,var(--pink-glow),var(--pink-core));animation:progressSlide 1.15s ease-in-out infinite;}
+  @keyframes progressSlide{
+    0%{left:-40%;}
+    100%{left:100%;}
+  }
+  .loading-bar-wrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+  .loading-label{color:var(--ink-soft);font-size:13px;}
   .spinner{width:18px;height:18px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--pink-core);animation:spin .7s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
 
@@ -305,7 +313,7 @@
 
   <!-- WIN -->
   <div id="screen-win" class="screen">
-    <div class="win-emoji">🎉</div>
+    <div class="win-emoji">🧠</div>
     <h2 data-t="win_title">Geschafft!</h2>
     <div class="win-time" id="win-time">00:00</div>
     <p class="muted" data-t="win_sub">Deine Zeit</p>
@@ -611,7 +619,10 @@ async function startGame(difficulty, mode){
 
 function renderLoadingGrid(){
   const grid = document.getElementById('grid');
-  grid.innerHTML = `<div class="loading-row" style="position:absolute;inset:0;"><div class="spinner"></div>${t('generating')}</div>`;
+  grid.innerHTML = `<div class="loading-bar-wrap">
+    <div class="progress-track"><div class="progress-fill"></div></div>
+    <div class="loading-label">${t('generating')}</div>
+  </div>`;
 }
 
 function cellCoords(cell,n){ return [Math.floor(cell/n), cell%n]; }
