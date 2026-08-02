@@ -88,15 +88,18 @@ export function generateCrossword(wordBank, opts = {}) {
   const rng = mulberry32(seed);
 
   const pool = shuffle(wordBank, rng).slice(0, candidatePoolSize);
-  // Longer words first tend to make better anchors.
+  // Longer words first tend to make better anchors — but pick the actual
+  // anchor randomly among the top few longest so the puzzle's starting
+  // word (and everything built from it) varies between generations.
   pool.sort((a, b) => b.word.length - a.word.length);
 
   const letters = new Map(); // "r,c" -> letter
   const placed = []; // { word, clue, row, col, dir }
   const remaining = pool.slice();
 
-  // Seed with the first (longest) word, placed horizontally at the origin.
-  const first = remaining.shift();
+  const anchorPoolSize = Math.min(remaining.length, 6);
+  const anchorIdx = Math.floor(rng() * anchorPoolSize);
+  const first = remaining.splice(anchorIdx, 1)[0];
   for (let i = 0; i < first.word.length; i++) {
     letters.set(cellKey(0, i), first.word[i]);
   }
@@ -112,14 +115,15 @@ export function generateCrossword(wordBank, opts = {}) {
   }
   const oldArea = () => (bbox.maxR - bbox.minR + 1) * (bbox.maxC - bbox.minC + 1);
 
-  // At each step, evaluate every remaining candidate's best placement and
-  // commit only the single best (word, placement) pair overall — scored by
-  // crossing count first (more shared letters = denser grid), with minimal
-  // bounding-box growth as a tie-breaker (keeps the puzzle compact instead
-  // of sprawling out). This is far denser than committing the first word
-  // that happens to fit.
+  // At each step, evaluate every remaining candidate's best placement, then
+  // randomly pick among the top-scoring options (rather than always the
+  // single global best) — scored by crossing count first (more shared
+  // letters = denser grid), with minimal bounding-box growth as a
+  // tie-breaker. Picking only the single best every time made generations
+  // converge on nearly the same word set regardless of shuffle order;
+  // sampling from the top few keeps density high while still varying.
   while (placed.length < targetWords && remaining.length > 0) {
-    let bestOverall = null; // { idx, row, col, dir, crossings, score }
+    const candidates = []; // { idx, row, col, dir, crossings, score }
     for (let idx = 0; idx < remaining.length; idx++) {
       const entry = remaining[idx];
       const placement = findBestPlacement(entry.word, letters);
@@ -127,11 +131,12 @@ export function generateCrossword(wordBank, opts = {}) {
       const newArea = bboxAreaAfter(placement.row, placement.col, placement.dir, entry.word.length);
       const areaGrowth = newArea - oldArea();
       const score = placement.crossings * 1000 - areaGrowth;
-      if (!bestOverall || score > bestOverall.score) {
-        bestOverall = { idx, row: placement.row, col: placement.col, dir: placement.dir, crossings: placement.crossings, score };
-      }
+      candidates.push({ idx, row: placement.row, col: placement.col, dir: placement.dir, crossings: placement.crossings, score });
     }
-    if (!bestOverall) break; // no remaining word can be placed at all
+    if (candidates.length === 0) break; // no remaining word can be placed at all
+    candidates.sort((a, b) => b.score - a.score);
+    const poolSize = Math.min(candidates.length, Math.max(3, Math.ceil(candidates.length * 0.25)));
+    const bestOverall = candidates[Math.floor(rng() * poolSize)];
     const entry = remaining[bestOverall.idx];
     for (let i = 0; i < entry.word.length; i++) {
       const r = bestOverall.row + (bestOverall.dir === 'V' ? i : 0);
