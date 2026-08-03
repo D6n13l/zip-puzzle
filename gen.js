@@ -256,6 +256,42 @@ function generateWalls(n, path, dotsByCell, rng, opts = {}) {
   return { walls, unique: count === 1, budgetExceeded };
 }
 
+// Measures how "obvious" a puzzle is: starting from dot 1, keep taking the
+// next cell whenever there's exactly one legal option (respecting walls,
+// visited cells, and dot order). This is pure mechanical forcing — no
+// lookahead or guessing required. The run length before the first real
+// decision point (0 or 2+ options) is how far a human can get without
+// thinking at all. Lower is harder; a puzzle that's 100% forced start-to-
+// finish takes zero real thought regardless of grid size or wall count.
+export function forcedRunLength(n, dotsByCell, walls) {
+  const total = n * n;
+  const cellsWithDots = Object.keys(dotsByCell).map(Number);
+  const startCell = cellsWithDots.find((c) => dotsByCell[c] === 1);
+  const visited = new Uint8Array(total);
+  visited[startCell] = 1;
+  let current = startCell;
+  let nextDot = 2;
+  let steps = 1;
+  for (;;) {
+    const options = [];
+    for (const nb of neighbors(current, n)) {
+      if (visited[nb]) continue;
+      if (walls.has(edgeKey(current, nb))) continue;
+      const label = dotsByCell[nb];
+      if (label !== undefined && label !== nextDot) continue;
+      options.push(nb);
+    }
+    if (options.length !== 1) break; // stuck, or a real choice — stop counting
+    const next = options[0];
+    visited[next] = 1;
+    if (dotsByCell[next] === nextDot) nextDot++;
+    current = next;
+    steps++;
+    if (steps === total) break; // fully solved by forcing alone
+  }
+  return steps;
+}
+
 function generatePuzzleAttempt(n, numDots, seed, opts = {}) {
   const rng = mulberry32(seed);
   const path = generatePathWithRetries(n, rng, opts.pathTries ?? 25);
@@ -269,14 +305,28 @@ function sleep0() { return new Promise((resolve) => setTimeout(resolve, 0)); }
 
 export async function generatePuzzle(n, numDots, seed, opts = {}) {
   const maxRetries = opts.maxRetries ?? 12;
+  const maxForcedRatio = opts.maxForcedRatio ?? 1; // 1 = no human-difficulty gate
   let best = null;
+  let bestUniqueButTooEasy = null;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const trySeed = (seed + attempt * 104729) >>> 0;
     const result = generatePuzzleAttempt(n, numDots, trySeed, opts);
     if (!result) { await sleep0(); continue; }
-    if (result.unique) return result;
-    if (!best || result.walls.length > best.walls.length) best = result;
+    if (result.unique) {
+      const walls = new Set(result.walls);
+      const forced = forcedRunLength(n, result.dots, walls);
+      const ratio = forced / (n * n);
+      if (ratio <= maxForcedRatio) return result; // meets the difficulty bar — done
+      // Keep the least-trivial unique candidate seen so far as a fallback
+      // in case nothing meets the bar within the retry budget.
+      if (!bestUniqueButTooEasy || ratio < bestUniqueButTooEasy.ratio) {
+        bestUniqueButTooEasy = { result, ratio };
+      }
+    } else if (!best || result.walls.length > best.walls.length) {
+      best = result;
+    }
     await sleep0(); // let the browser repaint (loading spinner) between attempts
   }
+  if (bestUniqueButTooEasy) return bestUniqueButTooEasy.result;
   return best;
 }

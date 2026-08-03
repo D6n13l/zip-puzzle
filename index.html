@@ -305,9 +305,9 @@
     <div id="zip-menu-body">
       <div class="section-label" data-t="menu_difficulty">Schwierigkeit</div>
       <div class="diff-grid" id="diff-grid">
-        <div class="diff-card" data-diff="easy"><div class="lvl" data-t="diff_easy">Leicht</div><div class="sz">7×7</div></div>
+        <div class="diff-card" data-diff="easy"><div class="lvl" data-t="diff_easy">Leicht</div><div class="sz">8×8</div></div>
         <div class="diff-card" data-diff="medium"><div class="lvl" data-t="diff_medium">Mittel</div><div class="sz">8×8</div></div>
-        <div class="diff-card" data-diff="hard"><div class="lvl" data-t="diff_hard">Schwer</div><div class="sz">8×8</div></div>
+        <div class="diff-card" data-diff="hard"><div class="lvl" data-t="diff_hard">Schwer</div><div class="sz">9×9</div></div>
       </div>
 
       <div class="section-label" data-t="menu_mode">Modus</div>
@@ -442,8 +442,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js?v=4";
-import { generateCrossword } from "./crossword-gen.js?v=4";
+import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js?v=5";
+import { generateCrossword } from "./crossword-gen.js?v=5";
 import { WORD_BANK } from "./crossword-words.js?v=4";
 
 const firebaseConfig = {
@@ -539,9 +539,9 @@ function applyI18n(){
 // but that makes the uniqueness search much heavier, so harder levels also
 // get a bigger generation budget.
 const DIFF = {
-  easy:   { n:7, dots:9,  label:'diff_easy',   extraWallBudget:2, genNodeBudget:280000, genMaxRetries:14 },
-  medium: { n:8, dots:14, label:'diff_medium', extraWallBudget:1, genNodeBudget:300000, genMaxRetries:14 },
-  hard:   { n:8, dots:12, label:'diff_hard',   extraWallBudget:0, genNodeBudget:340000, genMaxRetries:18 },
+  easy:   { n:8, dots:14, label:'diff_easy',   extraWallBudget:2, genNodeBudget:280000, genMaxRetries:14 },
+  medium: { n:8, dots:12, label:'diff_medium', extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16 },
+  hard:   { n:9, dots:20, label:'diff_hard',   extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16 },
 };
 
 /* ---------------- user / auth-lite ---------------- */
