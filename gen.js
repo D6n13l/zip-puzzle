@@ -38,7 +38,7 @@ export function neighbors(i, n) {
 
 export function edgeKey(a, b) { return a < b ? a + '_' + b : b + '_' + a; }
 
-function generateHamiltonianPath(n, rng, nodeBudget = 400000) {
+function generateHamiltonianPath(n, rng, nodeBudget = 400000, warnsdorffProb = 0.75) {
   const total = n * n;
   const start = Math.floor(rng() * total);
   const visited = new Uint8Array(total);
@@ -61,7 +61,13 @@ function generateHamiltonianPath(n, rng, nodeBudget = 400000) {
       const j = Math.floor(rng() * (i + 1));
       [opts[i], opts[j]] = [opts[j], opts[i]];
     }
-    opts.sort((a, b) => freeDegree(a) - freeDegree(b));
+    // Applying the Warnsdorff heuristic (prefer lower-freedom neighbors)
+    // most — but not all — of the time keeps path-finding tractable on
+    // larger grids while still letting the path wander/backtrack instead
+    // of always taking the locally most efficient route (a fully "smart"
+    // path means the true route between any two checkpoints is already
+    // the shortest possible one — trivially connect-the-dots).
+    if (rng() < warnsdorffProb) opts.sort((a, b) => freeDegree(a) - freeDegree(b));
     for (const nb of opts) {
       visited[nb] = 1;
       path.push(nb);
@@ -269,6 +275,69 @@ function generateWalls(n, path, dotsByCell, rng, opts = {}) {
       const res = countSolutions(n, dotsByCell, walls, 2, nodeBudget);
       if (res.count !== 1) {
         walls.add(w); // still needed — keep it
+      }
+    }
+  }
+
+  // Phase 2.5: block the tempting direct shortcut between each pair of
+  // consecutive numbers. Even with a minimal wall set, an open grid often
+  // still lets you walk almost straight from one number to the next — this
+  // specifically closes that off wherever the true route has to be much
+  // longer than the direct one, forcing an actual detour instead of "just
+  // connect the dots".
+  if (count === 1) {
+    const dotCells = Object.keys(dotsByCell).map(Number);
+    const numDots = dotCells.length;
+    const dotByNumber = new Array(numDots + 1);
+    dotCells.forEach((c) => { dotByNumber[dotsByCell[c]] = c; });
+
+    function bfsPath(start, end) {
+      const total = n * n;
+      const prev = new Int32Array(total).fill(-1);
+      const seen = new Uint8Array(total);
+      const queue = [start];
+      seen[start] = 1;
+      let qi = 0;
+      while (qi < queue.length) {
+        const cur = queue[qi++];
+        if (cur === end) break;
+        for (const nb of neighbors(cur, n)) {
+          if (seen[nb] || walls.has(edgeKey(cur, nb))) continue;
+          seen[nb] = 1; prev[nb] = cur; queue.push(nb);
+        }
+      }
+      if (!seen[end]) return null;
+      const route = [end];
+      let c = end;
+      while (c !== start) { c = prev[c]; route.push(c); }
+      route.reverse();
+      return route;
+    }
+
+    // Segment lengths along the true path, by number.
+    const dotIndexInPath = new Map();
+    path.forEach((cell, idx) => { if (dotsByCell[cell] !== undefined) dotIndexInPath.set(dotsByCell[cell], idx); });
+
+    for (let num = 1; num < numDots; num++) {
+      const a = dotByNumber[num], b = dotByNumber[num + 1];
+      const trueSegLen = dotIndexInPath.get(num + 1) - dotIndexInPath.get(num);
+      let attempts = 0;
+      while (attempts < 3) {
+        const shortest = bfsPath(a, b);
+        if (!shortest || shortest.length - 1 >= trueSegLen) break; // no exploitable shortcut left
+        // Find an edge on this shortcut that isn't part of the true solution, closest to `a`.
+        let blocked = false;
+        for (let i = 0; i < shortest.length - 1; i++) {
+          const key = edgeKey(shortest[i], shortest[i + 1]);
+          if (pathEdges.has(key) || walls.has(key)) continue;
+          walls.add(key);
+          const res = countSolutions(n, dotsByCell, walls, 2, nodeBudget);
+          if (res.count !== 1) { walls.delete(key); continue; } // safety net, shouldn't trigger
+          blocked = true;
+          break;
+        }
+        if (!blocked) break;
+        attempts++;
       }
     }
   }
