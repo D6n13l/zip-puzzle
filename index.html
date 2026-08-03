@@ -1201,7 +1201,10 @@ function buildCrosswordGrid(){
         input.dataset.row = r; input.dataset.col = c;
         input.style.fontSize = Math.round(xwCellSize*0.47)+'px';
         input.style.lineHeight = xwCellSize+'px';
-        input.addEventListener('focus', ()=> setXwActive(r, c));
+        input.addEventListener('focus', ()=>{
+          if(xwActiveRow===r && xwActiveCol===c) return; // already active — this focus came from our own setXwActive() call, don't re-run direction-fix
+          setXwActive(r, c);
+        });
         input.addEventListener('click', ()=>{
           if(xwActiveRow===r && xwActiveCol===c) toggleXwDirection();
           setXwActive(r, c);
