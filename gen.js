@@ -84,50 +84,16 @@ function generatePathWithRetries(n, rng, tries = 25) {
   return null;
 }
 
-function cellRC(idx, n) { return [Math.floor(idx / n), idx % n]; }
-function manhattan(a, b, n) {
-  const [ar, ac] = cellRC(a, n), [br, bc] = cellRC(b, n);
-  return Math.abs(ar - br) + Math.abs(ac - bc);
-}
-
-// Places k numbered checkpoints along the solution path. Rather than just
-// spacing them evenly by path-index, this deliberately favors checkpoints
-// that are geometrically CLOSE to the previous one but require a long,
-// winding path to actually reach (high path-distance / low straight-line
-// distance) — that's what forces a player to realize "I can't just walk
-// toward the next number", instead of the puzzle collapsing into an
-// obvious 1-to-2-to-3 straight line.
-function placeDots(path, k, n) {
+function placeDots(path, k) {
   const total = path.length;
-  if (k < 2) k = 2;
-  const avgSeg = (total - 1) / (k - 1);
-  const window = Math.max(2, Math.floor(avgSeg * 0.7));
-
-  function segScore(j, i) {
-    const gap = i - j;
-    const dist = manhattan(path[j], path[i], n);
-    return gap / (dist + 1); // big index-gap + small spatial distance = deceptive
-  }
-
   const positions = [0];
-  for (let m = 1; m < k - 1; m++) {
-    const base = Math.round(m * avgSeg);
-    const prev = positions[positions.length - 1];
-    const minIdx = Math.max(prev + 1, base - window);
-    const maxIdx = Math.min(total - 2 - (k - 2 - m), base + window);
-    let bestIdx = Math.max(minIdx, Math.min(base, Math.max(minIdx, maxIdx)));
-    let bestScore = -Infinity;
-    for (let cand = minIdx; cand <= maxIdx; cand++) {
-      const score = segScore(prev, cand);
-      if (score > bestScore) { bestScore = score; bestIdx = cand; }
-    }
-    positions.push(bestIdx);
+  for (let i = 1; i < k - 1; i++) {
+    positions.push(Math.round((i * (total - 1)) / (k - 1)));
   }
   positions.push(total - 1);
   for (let i = 1; i < positions.length; i++) {
     if (positions[i] <= positions[i - 1]) positions[i] = positions[i - 1] + 1;
   }
-
   const dotsByCell = {};
   positions.forEach((pos, i) => {
     dotsByCell[path[pos]] = i + 1;
@@ -330,7 +296,7 @@ function generatePuzzleAttempt(n, numDots, seed, opts = {}) {
   const rng = mulberry32(seed);
   const path = generatePathWithRetries(n, rng, opts.pathTries ?? 25);
   if (!path) return null;
-  const dotsByCell = placeDots(path, numDots, n);
+  const dotsByCell = placeDots(path, numDots);
   const { walls, unique, budgetExceeded } = generateWalls(n, path, dotsByCell, rng, opts);
   return { n, seed, path, dots: dotsByCell, walls: Array.from(walls), unique, budgetExceeded };
 }
