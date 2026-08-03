@@ -442,8 +442,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js?v=11";
-import { generateCrossword } from "./crossword-gen.js?v=11";
+import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js?v=12";
+import { generateCrossword } from "./crossword-gen.js?v=12";
 import { WORD_BANK } from "./crossword-words.js?v=4";
 
 const firebaseConfig = {
@@ -476,7 +476,7 @@ const I18N = {
     howto_title:"Wie man spielt", howto_1:"Verbinde die Punkte in der richtigen Reihenfolge", howto_2:"Fülle jede Zelle des Rasters",
     win_title:"Geschafft!", win_sub:"Deine Zeit", win_again:"Nochmal üben", win_menu:"Zurück zum Menü",
     lb_title:"Rangliste", lb_empty:"Noch keine Einträge heute – sei der Erste!",
-    daily_done_prefix:"Heute gespielt · Zeit: ", daily_play:"Spielen", generating:"Rätsel wird erstellt …",
+    daily_done_prefix:"Heute gespielt · Zeit: ", daily_play:"Spielen", generating:"Rätsel wird erstellt …", generating_patience:"Bei Schwer kann das ein paar Minuten dauern …",
     rename_prompt:"Neuer Name:",
   },
   en: {
@@ -495,7 +495,7 @@ const I18N = {
     howto_title:"How to play", howto_1:"Connect the dots in order", howto_2:"Fill every cell of the grid",
     win_title:"Solved!", win_sub:"Your time", win_again:"Practice again", win_menu:"Back to menu",
     lb_title:"Leaderboard", lb_empty:"No entries yet today – be the first!",
-    daily_done_prefix:"Played today · Time: ", daily_play:"Play", generating:"Generating puzzle …",
+    daily_done_prefix:"Played today · Time: ", daily_play:"Play", generating:"Generating puzzle …", generating_patience:"On Hard this can take a couple of minutes …",
     rename_prompt:"New name:",
   },
   es: {
@@ -514,7 +514,7 @@ const I18N = {
     howto_title:"Cómo jugar", howto_1:"Conecta los puntos en orden", howto_2:"Rellena cada casilla de la cuadrícula",
     win_title:"¡Resuelto!", win_sub:"Tu tiempo", win_again:"Practicar de nuevo", win_menu:"Volver al menú",
     lb_title:"Clasificación", lb_empty:"Todavía no hay entradas hoy – ¡sé el primero!",
-    daily_done_prefix:"Jugado hoy · Tiempo: ", daily_play:"Jugar", generating:"Generando puzzle …",
+    daily_done_prefix:"Jugado hoy · Tiempo: ", daily_play:"Jugar", generating:"Generando puzzle …", generating_patience:"En Difícil esto puede tardar un par de minutos …",
     rename_prompt:"Nuevo nombre:",
   }
 };
@@ -541,7 +541,7 @@ function applyI18n(){
 const DIFF = {
   easy:   { n:8, dots:14, label:'diff_easy',   extraWallBudget:2, genNodeBudget:280000, genMaxRetries:14, candidatesToCompare:1 },
   medium: { n:8, dots:12, label:'diff_medium', extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16, candidatesToCompare:2 },
-  hard:   { n:9, dots:20, label:'diff_hard',   extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16, candidatesToCompare:2 },
+  hard:   { n:9, dots:10, label:'diff_hard',   extraWallBudget:0, genNodeBudget:500000, genMaxRetries:25, candidatesToCompare:1 },
 };
 
 /* ---------------- user / auth-lite ---------------- */
@@ -754,12 +754,18 @@ async function startGame(difficulty, mode){
   updateTimerDisplay(0);
 }
 
+let loadingHintTimer = null;
 function renderLoadingGrid(){
   const grid = document.getElementById('grid');
   grid.innerHTML = `<div class="loading-bar-wrap">
     <div class="progress-track"><div class="progress-fill"></div></div>
-    <div class="loading-label">${t('generating')}</div>
+    <div class="loading-label" id="loading-label">${t('generating')}</div>
   </div>`;
+  if(loadingHintTimer) clearTimeout(loadingHintTimer);
+  loadingHintTimer = setTimeout(()=>{
+    const label = document.getElementById('loading-label');
+    if(label) label.textContent = t('generating_patience');
+  }, 8000);
 }
 
 function cellCoords(cell,n){ return [Math.floor(cell/n), cell%n]; }
