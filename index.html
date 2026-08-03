@@ -442,8 +442,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js?v=7";
-import { generateCrossword } from "./crossword-gen.js?v=7";
+import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js?v=8";
+import { generateCrossword } from "./crossword-gen.js?v=8";
 import { WORD_BANK } from "./crossword-words.js?v=4";
 
 const firebaseConfig = {
@@ -541,7 +541,7 @@ function applyI18n(){
 const DIFF = {
   easy:   { n:8, dots:14, label:'diff_easy',   extraWallBudget:2, genNodeBudget:280000, genMaxRetries:14 },
   medium: { n:8, dots:12, label:'diff_medium', extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16 },
-  hard:   { n:9, dots:18, label:'diff_hard',   extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16 },
+  hard:   { n:9, dots:20, label:'diff_hard',   extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16 },
 };
 
 /* ---------------- user / auth-lite ---------------- */

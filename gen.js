@@ -84,16 +84,42 @@ function generatePathWithRetries(n, rng, tries = 25) {
   return null;
 }
 
-function placeDots(path, k) {
+function cellRC(idx, n) { return [Math.floor(idx / n), idx % n]; }
+function manhattan(a, b, n) {
+  const [ar, ac] = cellRC(a, n), [br, bc] = cellRC(b, n);
+  return Math.abs(ar - br) + Math.abs(ac - bc);
+}
+
+// Places k numbered checkpoints along the solution path, favoring layouts
+// where consecutive numbers are spatially FAR apart (not just far along the
+// path) — so the route to the next number has to span a large chunk of the
+// grid, likely weaving past other (not-yet- or already-visited) numbers,
+// instead of a short local hop that can be solved as an isolated pocket.
+function placeDots(path, k, n) {
   const total = path.length;
+  if (k < 2) k = 2;
+  const avgSeg = (total - 1) / (k - 1);
+  const window = Math.max(2, Math.floor(avgSeg * 0.7));
+
   const positions = [0];
-  for (let i = 1; i < k - 1; i++) {
-    positions.push(Math.round((i * (total - 1)) / (k - 1)));
+  for (let m = 1; m < k - 1; m++) {
+    const base = Math.round(m * avgSeg);
+    const prev = positions[positions.length - 1];
+    const minIdx = Math.max(prev + 1, base - window);
+    const maxIdx = Math.min(total - 2 - (k - 2 - m), base + window);
+    let bestIdx = Math.max(minIdx, Math.min(base, Math.max(minIdx, maxIdx)));
+    let bestDist = -Infinity;
+    for (let cand = minIdx; cand <= maxIdx; cand++) {
+      const dist = manhattan(path[prev], path[cand], n); // maximize spatial spread
+      if (dist > bestDist) { bestDist = dist; bestIdx = cand; }
+    }
+    positions.push(bestIdx);
   }
   positions.push(total - 1);
   for (let i = 1; i < positions.length; i++) {
     if (positions[i] <= positions[i - 1]) positions[i] = positions[i - 1] + 1;
   }
+
   const dotsByCell = {};
   positions.forEach((pos, i) => {
     dotsByCell[path[pos]] = i + 1;
@@ -296,7 +322,7 @@ function generatePuzzleAttempt(n, numDots, seed, opts = {}) {
   const rng = mulberry32(seed);
   const path = generatePathWithRetries(n, rng, opts.pathTries ?? 25);
   if (!path) return null;
-  const dotsByCell = placeDots(path, numDots);
+  const dotsByCell = placeDots(path, numDots, n);
   const { walls, unique, budgetExceeded } = generateWalls(n, path, dotsByCell, rng, opts);
   return { n, seed, path, dots: dotsByCell, walls: Array.from(walls), unique, budgetExceeded };
 }
