@@ -26,10 +26,17 @@ function cellKey(r, c) { return r + ',' + c; }
 // Checks whether `word` can be placed at (row,col) going in `dir` ('H'|'V')
 // against the current sparse letter map, and returns a placement descriptor
 // with a crossing-count score, or null if invalid.
-function tryPlacement(word, row, col, dir, letters) {
+function tryPlacement(word, row, col, dir, letters, startKeys) {
   let crossings = 0;
   const dr = dir === 'V' ? 1 : 0;
   const dc = dir === 'H' ? 1 : 0;
+
+  // A different word must never start at the exact same cell+direction as
+  // an already-placed word — otherwise two words sharing a prefix (e.g.
+  // "ATHEN" and "ATHENE") can silently overlay each other, since every
+  // individual letter check below would still pass (the shared prefix
+  // matches letter-for-letter, and the extra tail lands on empty cells).
+  if (startKeys.has(row + ',' + col + ',' + dir)) return null;
 
   // Cell immediately before the start and after the end must be empty —
   // otherwise this word would run into another word and merge unintentionally.
@@ -60,7 +67,7 @@ function tryPlacement(word, row, col, dir, letters) {
   return { row, col, dir, crossings };
 }
 
-function findBestPlacement(word, letters) {
+function findBestPlacement(word, letters, startKeys) {
   let best = null;
   for (let i = 0; i < word.length; i++) {
     const ch = word[i];
@@ -70,11 +77,11 @@ function findBestPlacement(word, letters) {
       // Try placing this word crossing at (er,ec) in both orientations.
       // Horizontal: word's i-th letter lands at (er, ec) => start col = ec-i
       const hRow = er, hCol = ec - i;
-      const hPlacement = tryPlacement(word, hRow, hCol, 'H', letters);
+      const hPlacement = tryPlacement(word, hRow, hCol, 'H', letters, startKeys);
       if (hPlacement && (!best || hPlacement.crossings > best.crossings)) best = hPlacement;
       // Vertical: word's i-th letter lands at (er, ec) => start row = er-i
       const vRow = er - i, vCol = ec;
-      const vPlacement = tryPlacement(word, vRow, vCol, 'V', letters);
+      const vPlacement = tryPlacement(word, vRow, vCol, 'V', letters, startKeys);
       if (vPlacement && (!best || vPlacement.crossings > best.crossings)) best = vPlacement;
     }
   }
@@ -95,6 +102,7 @@ export function generateCrossword(wordBank, opts = {}) {
 
   const letters = new Map(); // "r,c" -> letter
   const placed = []; // { word, clue, row, col, dir }
+  const startKeys = new Set(); // "row,col,dir" for every placed word's start cell
   const remaining = pool.slice();
 
   const anchorPoolSize = Math.min(remaining.length, 6);
@@ -104,6 +112,7 @@ export function generateCrossword(wordBank, opts = {}) {
     letters.set(cellKey(0, i), first.word[i]);
   }
   placed.push({ word: first.word, clue: first.clue, row: 0, col: 0, dir: 'H' });
+  startKeys.add('0,0,H');
   let bbox = { minR: 0, maxR: 0, minC: 0, maxC: first.word.length - 1 };
 
   function bboxAreaAfter(row, col, dir, len) {
@@ -126,7 +135,7 @@ export function generateCrossword(wordBank, opts = {}) {
     const candidates = []; // { idx, row, col, dir, crossings, score }
     for (let idx = 0; idx < remaining.length; idx++) {
       const entry = remaining[idx];
-      const placement = findBestPlacement(entry.word, letters);
+      const placement = findBestPlacement(entry.word, letters, startKeys);
       if (!placement) continue;
       const newArea = bboxAreaAfter(placement.row, placement.col, placement.dir, entry.word.length);
       const areaGrowth = newArea - oldArea();
@@ -150,6 +159,7 @@ export function generateCrossword(wordBank, opts = {}) {
       minR: Math.min(bbox.minR, bestOverall.row), maxR: Math.max(bbox.maxR, endR),
       minC: Math.min(bbox.minC, bestOverall.col), maxC: Math.max(bbox.maxC, endC),
     };
+    startKeys.add(bestOverall.row + ',' + bestOverall.col + ',' + bestOverall.dir);
     placed.push({ word: entry.word, clue: entry.clue, row: bestOverall.row, col: bestOverall.col, dir: bestOverall.dir });
     remaining.splice(bestOverall.idx, 1);
   }
