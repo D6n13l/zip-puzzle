@@ -442,8 +442,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js?v=9";
-import { generateCrossword } from "./crossword-gen.js?v=9";
+import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js?v=10";
+import { generateCrossword } from "./crossword-gen.js?v=10";
 import { WORD_BANK } from "./crossword-words.js?v=4";
 
 const firebaseConfig = {
@@ -539,9 +539,9 @@ function applyI18n(){
 // but that makes the uniqueness search much heavier, so harder levels also
 // get a bigger generation budget.
 const DIFF = {
-  easy:   { n:8, dots:14, label:'diff_easy',   extraWallBudget:2, genNodeBudget:280000, genMaxRetries:14 },
-  medium: { n:8, dots:12, label:'diff_medium', extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16 },
-  hard:   { n:9, dots:20, label:'diff_hard',   extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16 },
+  easy:   { n:8, dots:14, label:'diff_easy',   extraWallBudget:2, genNodeBudget:280000, genMaxRetries:14, candidatesToCompare:1 },
+  medium: { n:8, dots:12, label:'diff_medium', extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16, candidatesToCompare:2 },
+  hard:   { n:9, dots:20, label:'diff_hard',   extraWallBudget:0, genNodeBudget:320000, genMaxRetries:16, candidatesToCompare:3 },
 };
 
 /* ---------------- user / auth-lite ---------------- */
@@ -700,7 +700,7 @@ async function loadOrCreateDailyPuzzle(difficulty){
   // Not present yet: generate, then try to commit via transaction so concurrent
   // clients converge on the same puzzle for the day.
   const seed = hashStringToSeed(`${difficulty}-${todayStr()}`);
-  const puzzle = await generatePuzzle(cfg.n, cfg.dots, seed, { extraWallBudget: cfg.extraWallBudget, nodeBudget: cfg.genNodeBudget, maxRetries: cfg.genMaxRetries });
+  const puzzle = await generatePuzzle(cfg.n, cfg.dots, seed, { extraWallBudget: cfg.extraWallBudget, nodeBudget: cfg.genNodeBudget, maxRetries: cfg.genMaxRetries, candidatesToCompare: cfg.candidatesToCompare });
   const payload = { n: puzzle.n, dots: dotsObjToArray(puzzle.dots), walls: puzzle.walls, createdAt: Date.now() };
   const txResult = await runTransaction(r, (current)=> current === null ? payload : current);
   const finalVal = txResult.snapshot.val();
@@ -710,7 +710,7 @@ async function loadOrCreateDailyPuzzle(difficulty){
 async function generatePracticePuzzle(difficulty){
   const cfg = DIFF[difficulty];
   const seed = Math.floor(Math.random()*4294967295);
-  const puzzle = await generatePuzzle(cfg.n, cfg.dots, seed, { extraWallBudget: cfg.extraWallBudget, nodeBudget: cfg.genNodeBudget, maxRetries: cfg.genMaxRetries });
+  const puzzle = await generatePuzzle(cfg.n, cfg.dots, seed, { extraWallBudget: cfg.extraWallBudget, nodeBudget: cfg.genNodeBudget, maxRetries: cfg.genMaxRetries, candidatesToCompare: cfg.candidatesToCompare });
   return { n: puzzle.n, dots: puzzle.dots, walls: new Set(puzzle.walls) };
 }
 

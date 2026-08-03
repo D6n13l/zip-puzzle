@@ -329,6 +329,37 @@ export function forcedRunLength(n, dotsByCell, walls) {
   return steps;
 }
 
+// Counts how many times, while walking the TRUE solution path, there was
+// more than one legal next move available (respecting walls/visited/dot
+// order) — i.e. a real decision point where a wrong choice could paint you
+// into a corner. More of these means more places you can build yourself a
+// dead end, which is exactly what makes a puzzle risky/hard rather than a
+// puzzle that's merely large.
+function countBranchPoints(n, path, dotsByCell, walls) {
+  const total = n * n;
+  const visited = new Uint8Array(total);
+  const cellsWithDots = Object.keys(dotsByCell).map(Number);
+  const numDots = cellsWithDots.length;
+  let nextDot = 2;
+  let branchPoints = 0;
+  for (let i = 0; i < path.length; i++) {
+    const cell = path[i];
+    visited[cell] = 1;
+    if (dotsByCell[cell] !== undefined) nextDot = dotsByCell[cell] + 1;
+    if (i === path.length - 1) break;
+    let count = 0;
+    for (const nb of neighbors(cell, n)) {
+      if (visited[nb]) continue;
+      if (walls.has(edgeKey(cell, nb))) continue;
+      const label = dotsByCell[nb];
+      if (label !== undefined && label !== nextDot) continue;
+      count++;
+    }
+    if (count > 1) branchPoints++;
+  }
+  return branchPoints;
+}
+
 function generatePuzzleAttempt(n, numDots, seed, opts = {}) {
   const rng = mulberry32(seed);
   const path = generatePathWithRetries(n, rng, opts.pathTries ?? 25);
@@ -343,8 +374,11 @@ function sleep0() { return new Promise((resolve) => setTimeout(resolve, 0)); }
 export async function generatePuzzle(n, numDots, seed, opts = {}) {
   const maxRetries = opts.maxRetries ?? 12;
   const maxForcedRatio = opts.maxForcedRatio ?? 1; // 1 = no human-difficulty gate
+  const candidatesToCompare = opts.candidatesToCompare ?? 1; // >1 picks the trickiest of several unique finds
   let best = null;
   let bestUniqueButTooEasy = null;
+  let bestTricky = null; // { result, branchPoints }
+  let uniqueFoundCount = 0;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const trySeed = (seed + attempt * 104729) >>> 0;
     const result = generatePuzzleAttempt(n, numDots, trySeed, opts);
@@ -353,10 +387,14 @@ export async function generatePuzzle(n, numDots, seed, opts = {}) {
       const walls = new Set(result.walls);
       const forced = forcedRunLength(n, result.dots, walls);
       const ratio = forced / (n * n);
-      if (ratio <= maxForcedRatio) return result; // meets the difficulty bar — done
-      // Keep the least-trivial unique candidate seen so far as a fallback
-      // in case nothing meets the bar within the retry budget.
-      if (!bestUniqueButTooEasy || ratio < bestUniqueButTooEasy.ratio) {
+      if (ratio <= maxForcedRatio) {
+        uniqueFoundCount++;
+        const branchPoints = countBranchPoints(n, result.path, result.dots, walls);
+        if (!bestTricky || branchPoints > bestTricky.branchPoints) {
+          bestTricky = { result, branchPoints };
+        }
+        if (uniqueFoundCount >= candidatesToCompare) return bestTricky.result; // enough candidates compared
+      } else if (!bestUniqueButTooEasy || ratio < bestUniqueButTooEasy.ratio) {
         bestUniqueButTooEasy = { result, ratio };
       }
     } else if (!best || result.walls.length > best.walls.length) {
@@ -364,6 +402,7 @@ export async function generatePuzzle(n, numDots, seed, opts = {}) {
     }
     await sleep0(); // let the browser repaint (loading spinner) between attempts
   }
+  if (bestTricky) return bestTricky.result; // fewer unique finds than requested, but use the best we got
   if (bestUniqueButTooEasy) return bestUniqueButTooEasy.result;
   return best;
 }
