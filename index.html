@@ -231,7 +231,7 @@
   #crossword-grid{position:relative;display:inline-grid;gap:2px;background:var(--grid-line);border:2px solid var(--grid-line);border-radius:6px;overflow:visible;margin:0 auto;}
   #xw-highlight-frame{position:absolute;border:2.5px solid var(--pink-core);border-radius:4px;box-shadow:0 0 10px rgba(255,92,200,0.55);pointer-events:none;display:none;z-index:5;}
   .xw-cell{position:relative;width:34px;height:34px;background:#161c38;}
-  .xw-cell.blocked{background:#000000;}
+  .xw-cell.blocked{background:#1a0505;box-shadow:inset 0 0 8px rgba(255,50,50,0.85), 0 0 6px rgba(255,40,40,0.55);}
   .xw-cell input{
     width:100%;height:100%;border:none;background:transparent;color:var(--ink);
     text-align:center;font-family:'Nunito';font-weight:800;font-size:16px;text-transform:uppercase;
@@ -444,7 +444,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js?v=13";
-import { generateCrossword } from "./crossword-gen.js?v=16";
+import { generateCrossword } from "./crossword-gen.js?v=17";
 import { WORD_BANK } from "./crossword-words.js?v=5";
 
 const firebaseConfig = {

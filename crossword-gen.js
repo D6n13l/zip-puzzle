@@ -170,45 +170,48 @@ export function generateCrossword(wordBank, opts = {}) {
 
   // Densification pass: after reaching the target word count, keep trying
   // to squeeze in MORE words from the wider bank that cross existing
-  // letters without growing the footprint (or only growing it a little).
-  // This is purely about adding overlaps — every extra word placed here
-  // shares at least one letter with what's already there, so solving one
-  // word reveals letters that help with another.
+  // letters — preferring zero-growth (fits inside the current footprint)
+  // insertions first, then the least-growth option — to convert as many
+  // blocked cells into real, overlapping words as possible. Every extra
+  // word placed here shares at least one letter with what's already there,
+  // so solving one word reveals letters that help with another.
   const placedWords = new Set(placed.map((p) => p.word));
   let extraPool = shuffle(wordBank.filter((w) => !placedWords.has(w.word)), rng);
-  const maxExtraWords = opts.maxExtraWords ?? Math.ceil(targetWords * 1.0);
-  const areaGrowthCap = opts.extraAreaGrowthCap ?? 4; // allow a bit more growth to fit more overlaps
-  let addedExtra = 0;
+  const areaGrowthCap = opts.extraAreaGrowthCap ?? 6;
   let stillSearching = true;
-  while (stillSearching && addedExtra < maxExtraWords) {
+  while (stillSearching) {
     stillSearching = false;
+    let bestIdx = -1, bestPlacement = null, bestGrowth = Infinity, bestCrossings = -1;
     for (let idx = 0; idx < extraPool.length; idx++) {
       const entry = extraPool[idx];
       const placement = findBestPlacement(entry.word, letters, startKeys);
       if (!placement || placement.crossings < 1) continue;
       const newArea = bboxDimsAfter(placement.row, placement.col, placement.dir, entry.word.length).area;
       const areaGrowth = newArea - oldArea();
-      if (areaGrowth > areaGrowthCap) continue; // only accept near-free (in-footprint) additions
-      for (let i = 0; i < entry.word.length; i++) {
-        const r = placement.row + (placement.dir === 'V' ? i : 0);
-        const c = placement.col + (placement.dir === 'H' ? i : 0);
-        letters.set(cellKey(r, c), entry.word[i]);
+      if (areaGrowth > areaGrowthCap) continue;
+      if (areaGrowth < bestGrowth || (areaGrowth === bestGrowth && placement.crossings > bestCrossings)) {
+        bestIdx = idx; bestPlacement = placement; bestGrowth = areaGrowth; bestCrossings = placement.crossings;
       }
-      const len = entry.word.length;
-      const endR = placement.row + (placement.dir === 'V' ? len - 1 : 0);
-      const endC = placement.col + (placement.dir === 'H' ? len - 1 : 0);
-      bbox = {
-        minR: Math.min(bbox.minR, placement.row), maxR: Math.max(bbox.maxR, endR),
-        minC: Math.min(bbox.minC, placement.col), maxC: Math.max(bbox.maxC, endC),
-      };
-      startKeys.add(placement.row + ',' + placement.col + ',' + placement.dir);
-      placed.push({ word: entry.word, clue: entry.clue, row: placement.row, col: placement.col, dir: placement.dir });
-      extraPool.splice(idx, 1);
-      addedExtra++;
-      stillSearching = true;
-      if (addedExtra >= maxExtraWords) break;
-      break; // restart the scan since letters/bbox changed
     }
+    if (bestIdx === -1) break; // nothing more fits within the growth allowance
+    const entry = extraPool[bestIdx];
+    const placement = bestPlacement;
+    for (let i = 0; i < entry.word.length; i++) {
+      const r = placement.row + (placement.dir === 'V' ? i : 0);
+      const c = placement.col + (placement.dir === 'H' ? i : 0);
+      letters.set(cellKey(r, c), entry.word[i]);
+    }
+    const len = entry.word.length;
+    const endR = placement.row + (placement.dir === 'V' ? len - 1 : 0);
+    const endC = placement.col + (placement.dir === 'H' ? len - 1 : 0);
+    bbox = {
+      minR: Math.min(bbox.minR, placement.row), maxR: Math.max(bbox.maxR, endR),
+      minC: Math.min(bbox.minC, placement.col), maxC: Math.max(bbox.maxC, endC),
+    };
+    startKeys.add(placement.row + ',' + placement.col + ',' + placement.dir);
+    placed.push({ word: entry.word, clue: entry.clue, row: placement.row, col: placement.col, dir: placement.dir });
+    extraPool.splice(bestIdx, 1);
+    stillSearching = true;
   }
 
   // Normalize coordinates to start at (0,0).
