@@ -248,6 +248,7 @@
   .clue-heading{font-family:'Nunito';font-weight:800;font-size:13.5px;color:var(--pink-core);margin-bottom:8px;}
   .clue-list{display:flex;flex-direction:column;gap:6px;}
   .clue-item{font-size:12.5px;color:var(--ink-soft);line-height:1.35;cursor:pointer;}
+  .clue-item.clue-solved{text-decoration:line-through;opacity:0.45;}
   .clue-item b{color:var(--ink);font-weight:700;}
   .clue-item.xw-active{color:var(--pink-core);}
   .xw-status{text-align:center;font-family:'Nunito';font-weight:800;color:var(--pink-core);margin-bottom:10px;text-shadow:0 0 14px rgba(255,92,200,0.45);}
@@ -443,8 +444,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { generatePuzzle, hashStringToSeed, neighbors, edgeKey } from "./gen.js?v=13";
-import { generateCrossword } from "./crossword-gen.js?v=15";
-import { WORD_BANK } from "./crossword-words.js?v=4";
+import { generateCrossword } from "./crossword-gen.js?v=16";
+import { WORD_BANK } from "./crossword-words.js?v=5";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDt7a6P4_yBJ2ScGO752kDDHq5UR0HGQPc",
@@ -1365,12 +1366,22 @@ function updateWordColoring(row, col, dir){
   const correctAnswer = cells.map(({r,c}) => crossword.grid[r][c]).join('');
   const typed = inputs.map(inp => (inp && inp.value ? inp.value.toUpperCase() : '')).join('');
   inputs.forEach(inp=>{ if(inp) inp.classList.remove('xw-correct','xw-wrong'); });
-  if(!filled) return; // leave uncolored until the whole word slot is filled
+
+  const start = cells[0];
+  const list = dir==='H' ? crossword.acrossClues : crossword.downClues;
+  const clueEntry = list.find(cl => cl.row===start.r && cl.col===start.c);
+  const clueEl = clueEntry ? document.querySelector(`.clue-item[data-num="${clueEntry.number}"][data-dir="${dir}"]`) : null;
+
+  if(!filled){
+    if(clueEl) clueEl.classList.remove('clue-solved');
+    return; // leave uncolored until the whole word slot is filled
+  }
   const isCorrect = typed === correctAnswer;
   inputs.forEach(inp=>{
     if(!inp) return;
     inp.classList.add(isCorrect ? 'xw-correct' : 'xw-wrong');
   });
+  if(clueEl) clueEl.classList.toggle('clue-solved', isCorrect);
 }
 
 function onXwInput(e, r, c){
@@ -1435,6 +1446,8 @@ function revealCrosswordCorrectness(){
       }
     }
   }
+  crossword.acrossClues.forEach(cl => updateWordColoring(cl.row, cl.col, 'H'));
+  crossword.downClues.forEach(cl => updateWordColoring(cl.row, cl.col, 'V'));
   return allCorrect;
 }
 

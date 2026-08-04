@@ -115,31 +115,35 @@ export function generateCrossword(wordBank, opts = {}) {
   startKeys.add('0,0,H');
   let bbox = { minR: 0, maxR: 0, minC: 0, maxC: first.word.length - 1 };
 
-  function bboxAreaAfter(row, col, dir, len) {
+  function bboxDimsAfter(row, col, dir, len) {
     const endR = row + (dir === 'V' ? len - 1 : 0);
     const endC = col + (dir === 'H' ? len - 1 : 0);
     const newMinR = Math.min(bbox.minR, row), newMaxR = Math.max(bbox.maxR, endR);
     const newMinC = Math.min(bbox.minC, col), newMaxC = Math.max(bbox.maxC, endC);
-    return (newMaxR - newMinR + 1) * (newMaxC - newMinC + 1);
+    const h = newMaxR - newMinR + 1, w = newMaxC - newMinC + 1;
+    return { area: h * w, width: w, height: h };
   }
   const oldArea = () => (bbox.maxR - bbox.minR + 1) * (bbox.maxC - bbox.minC + 1);
 
   // At each step, evaluate every remaining candidate's best placement, then
   // randomly pick among the top-scoring options (rather than always the
   // single global best) — scored by crossing count first (more shared
-  // letters = denser grid), with minimal bounding-box growth as a
-  // tie-breaker. Picking only the single best every time made generations
-  // converge on nearly the same word set regardless of shuffle order;
-  // sampling from the top few keeps density high while still varying.
+  // letters = denser grid), bounding-box growth and a squareness bias as
+  // tie-breakers (a real newspaper crossword is compact and roughly square,
+  // not a sprawling irregular shape). Picking only the single best every
+  // time made generations converge on nearly the same word set regardless
+  // of shuffle order; sampling from the top few keeps density high while
+  // still varying.
   while (placed.length < targetWords && remaining.length > 0) {
     const candidates = []; // { idx, row, col, dir, crossings, score }
     for (let idx = 0; idx < remaining.length; idx++) {
       const entry = remaining[idx];
       const placement = findBestPlacement(entry.word, letters, startKeys);
       if (!placement) continue;
-      const newArea = bboxAreaAfter(placement.row, placement.col, placement.dir, entry.word.length);
-      const areaGrowth = newArea - oldArea();
-      const score = placement.crossings * placement.crossings * 1000 - areaGrowth;
+      const dims = bboxDimsAfter(placement.row, placement.col, placement.dir, entry.word.length);
+      const areaGrowth = dims.area - oldArea();
+      const squarenessPenalty = Math.abs(dims.width - dims.height);
+      const score = placement.crossings * placement.crossings * 1000 - areaGrowth - squarenessPenalty * 3;
       candidates.push({ idx, row: placement.row, col: placement.col, dir: placement.dir, crossings: placement.crossings, score });
     }
     if (candidates.length === 0) break; // no remaining word can be placed at all
@@ -172,8 +176,8 @@ export function generateCrossword(wordBank, opts = {}) {
   // word reveals letters that help with another.
   const placedWords = new Set(placed.map((p) => p.word));
   let extraPool = shuffle(wordBank.filter((w) => !placedWords.has(w.word)), rng);
-  const maxExtraWords = opts.maxExtraWords ?? Math.ceil(targetWords * 0.6);
-  const areaGrowthCap = opts.extraAreaGrowthCap ?? 2; // allow only a tiny bit of growth
+  const maxExtraWords = opts.maxExtraWords ?? Math.ceil(targetWords * 1.0);
+  const areaGrowthCap = opts.extraAreaGrowthCap ?? 4; // allow a bit more growth to fit more overlaps
   let addedExtra = 0;
   let stillSearching = true;
   while (stillSearching && addedExtra < maxExtraWords) {
@@ -182,7 +186,7 @@ export function generateCrossword(wordBank, opts = {}) {
       const entry = extraPool[idx];
       const placement = findBestPlacement(entry.word, letters, startKeys);
       if (!placement || placement.crossings < 1) continue;
-      const newArea = bboxAreaAfter(placement.row, placement.col, placement.dir, entry.word.length);
+      const newArea = bboxDimsAfter(placement.row, placement.col, placement.dir, entry.word.length).area;
       const areaGrowth = newArea - oldArea();
       if (areaGrowth > areaGrowthCap) continue; // only accept near-free (in-footprint) additions
       for (let i = 0; i < entry.word.length; i++) {
