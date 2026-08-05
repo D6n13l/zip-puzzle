@@ -658,7 +658,7 @@ async function refreshDailyStatus(){
 document.getElementById('card-daily').addEventListener('click', ()=> startGame(selectedDiff, 'daily'));
 document.getElementById('card-practice').addEventListener('click', ()=> startGame(selectedDiff, 'practice'));
 document.getElementById('btn-open-leaderboard').addEventListener('click', ()=> openLeaderboard(selectedDiff));
-document.getElementById('card-crossword-practice').addEventListener('click', ()=> startCrossword());
+document.getElementById('card-crossword-practice').addEventListener('click', ()=> openCrossword());
 
 function enterMenu(){
   applyI18n();
@@ -1150,6 +1150,50 @@ function xwFilteredBank(){
   return WORD_BANK.filter(w => w.word.length <= maxLen);
 }
 
+const XW_STORAGE_KEY = 'zip_crossword_state';
+
+function saveXwState(){
+  if(!crossword) return;
+  const letters = {};
+  for(let r=0;r<crossword.height;r++){
+    for(let c=0;c<crossword.width;c++){
+      if(crossword.grid[r][c]===null) continue;
+      const input = xwInputAt(r,c);
+      if(input && input.value) letters[r+','+c] = input.value;
+    }
+  }
+  try{
+    localStorage.setItem(XW_STORAGE_KEY, JSON.stringify({ crossword, letters, cwDiff: selectedCwDiff }));
+  }catch(e){ /* storage full or unavailable — ignore, not critical */ }
+}
+
+function loadXwState(){
+  try{
+    const raw = localStorage.getItem(XW_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+
+function openCrossword(){
+  const saved = loadXwState();
+  if(saved && saved.crossword){
+    crossword = saved.crossword;
+    showScreen('screen-crossword');
+    document.getElementById('crossword-status-text').textContent = '';
+    buildCrosswordGrid();
+    Object.entries(saved.letters || {}).forEach(([key, val])=>{
+      const [r,c] = key.split(',').map(Number);
+      const input = xwInputAt(r,c);
+      if(input) input.value = val;
+    });
+    crossword.acrossClues.forEach(cl => updateWordColoring(cl.row, cl.col, 'H'));
+    crossword.downClues.forEach(cl => updateWordColoring(cl.row, cl.col, 'V'));
+    checkCrosswordCompletion(true);
+  } else {
+    startCrossword();
+  }
+}
+
 function startCrossword(){
   showScreen('screen-crossword');
   document.getElementById('crossword-status-text').textContent = '';
@@ -1159,6 +1203,7 @@ function startCrossword(){
     const targetWords = CW_DIFF[selectedCwDiff].targetWords;
     crossword = generateCrossword(bank, { targetWords, candidatePoolSize: bank.length });
     buildCrosswordGrid();
+    saveXwState();
   }, 30);
 }
 
@@ -1397,6 +1442,7 @@ function onXwInput(e, r, c){
   updateWordColoring(r, c, 'H');
   updateWordColoring(r, c, 'V');
   checkCrosswordCompletion(true);
+  saveXwState();
 }
 
 function onXwKeydown(e, r, c){
